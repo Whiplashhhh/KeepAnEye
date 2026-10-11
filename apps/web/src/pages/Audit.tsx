@@ -1,6 +1,6 @@
 import type { AuditEntry } from '@kae/shared';
 import type { LucideIcon } from 'lucide-react';
-import { ArrowLeft, CircleX, KeyRound, LogIn, LogOut, Plus, ShieldAlert, SquareTerminal, Trash2, UserCog } from 'lucide-react';
+import { ArrowLeft, CircleX, ImageUp, KeyRound, LogIn, LogOut, Plus, ShieldAlert, SquareTerminal, Trash2, UserCog } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 import { Button, EmptyState, Skeleton, cx } from '../components/ui';
@@ -17,6 +17,7 @@ const EVENTS: Record<string, { label: string; icon: LucideIcon; tone?: 'bad' | '
   'logout.all': { label: 'Déconnexion de tous les appareils', icon: LogOut, tone: 'warn' },
   'session.created': { label: 'Session créée', icon: Plus },
   'session.closed': { label: 'Session fermée', icon: Trash2 },
+  'session.upload': { label: 'Image collée', icon: ImageUp },
   'terminal.opened': { label: 'Terminal ouvert', icon: SquareTerminal },
   'admin.init': { label: 'Compte initialisé (CLI)', icon: UserCog },
   'admin.reset_2fa': { label: '2FA réinitialisée (CLI)', icon: UserCog, tone: 'warn' },

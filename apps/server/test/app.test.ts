@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -229,6 +229,30 @@ describe('sessions API', () => {
     const events = app.audit.list().map((e) => e.event);
     expect(events).toContain('session.created');
     expect(events).toContain('session.closed');
+  });
+
+  it('stores a pasted image and returns the path the session can read', async () => {
+    const sid = await login();
+    await post('/api/sessions', { name: 'shell-1', template: 'terminal' }, { kae_sid: sid });
+    await post('/api/sessions', { name: 'web', template: 'claude', project: 'webapp' }, { kae_sid: sid });
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+    const upload = (name: string, body: Buffer, type = 'image/png', cookies: Record<string, string> = { kae_sid: sid }) =>
+      app.fastify.inject({ method: 'POST', url: `/api/sessions/${name}/upload`, payload: body, cookies, headers: { origin: ORIGIN, 'content-type': type } });
+
+    const host = await upload('shell-1', png);
+    expect(host.statusCode).toBe(200);
+    const hostPath = host.json().path as string;
+    expect(hostPath).toMatch(new RegExp(`^${config.workspaceDir}/\\.kae-uploads/paste-.*\\.png$`));
+    expect(readFileSync(hostPath)).toEqual(png);
+
+    const claude = await upload('web', png);
+    expect(claude.json().path).toMatch(/^\/workspace\/\.kae-uploads\/paste-.*\.png$/);
+
+    expect((await upload('shell-1', Buffer.from('not an image at all'))).statusCode).toBe(400);
+    expect((await upload('shell-1', png, 'text/plain')).statusCode).toBe(400);
+    expect((await upload('nope', png)).statusCode).toBe(404);
+    expect((await upload('shell-1', png, 'image/png', {})).statusCode).toBe(401);
+    expect(app.audit.list().map((e) => e.event)).toContain('session.upload');
   });
 
   it('launches Claude in claude-box with the exact docker command', async () => {

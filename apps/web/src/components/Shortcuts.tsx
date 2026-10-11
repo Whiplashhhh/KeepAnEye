@@ -9,8 +9,8 @@ const SHORTCUTS: [string[], string][] = [
   [['G', 'A'], 'Activité'],
   [['G', 'R'], 'Réglages'],
   [['T'], 'Basculer le thème'],
-  [['Ctrl', 'Shift', 'C'], 'Copier la sélection du terminal'],
-  [['Ctrl', 'Shift', 'V'], 'Coller dans le terminal'],
+  [['Ctrl', 'C'], 'Copier la sélection (interrompt s’il n’y en a pas)'],
+  [['Ctrl', 'V'], 'Coller dans le terminal (texte ou capture d’écran)'],
   [['Esc'], 'Fermer un panneau'],
   [['?'], 'Cette aide'],
 ];

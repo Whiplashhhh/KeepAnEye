@@ -12,6 +12,7 @@ export type AuditEvent =
   | 'logout.all'
   | 'session.created'
   | 'session.closed'
+  | 'session.upload'
   | 'terminal.opened'
   | 'admin.init'
   | 'admin.reset_2fa'

@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ClipboardPaste, CornerDownLeft } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ClipboardPaste, Copy, CornerDownLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { TerminalHandle } from './Terminal';
@@ -95,7 +95,10 @@ export function Keybar({ term }: { term: React.RefObject<TerminalHandle | null> 
       <Key label="Flèche droite" onPress={() => send('\x1b[C')}>
         <ArrowRight className="size-4" />
       </Key>
-      <Key label="Coller" onPress={() => void term.current?.paste()}>
+      <Key label="Copier la sélection" onPress={() => term.current?.copy()}>
+        <Copy className="size-4" />
+      </Key>
+      <Key label="Coller (texte ou image)" onPress={() => void term.current?.paste()}>
         <ClipboardPaste className="size-4" />
       </Key>
     </div>

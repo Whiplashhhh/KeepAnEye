@@ -5,8 +5,10 @@ import type { ITheme } from '@xterm/xterm';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { CircleStop, PlugZap, RotateCw, WifiOff } from 'lucide-react';
+import { UPLOAD_TYPES, uploadImage } from '../lib/api';
 import { wsUrl } from '../lib/live';
 import { useTheme } from '../lib/theme';
+import { useToast } from '../lib/toast';
 import { cx } from './ui';
 
 export type TermLink = 'connecting' | 'open' | 'reconnecting' | 'ended' | 'unavailable';
@@ -15,7 +17,10 @@ export interface TerminalHandle {
   send: (data: string) => void;
   focus: () => void;
   setCtrl: (armed: boolean) => void;
+  /** Pastes the clipboard: an image is uploaded to the host and its path typed, text goes in as is. */
   paste: () => Promise<void>;
+  /** Copies the current selection; false when nothing is selected. */
+  copy: () => boolean;
 }
 
 const DARK: ITheme = {
@@ -78,6 +83,15 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
     const { resolved } = useTheme();
     const linkCb = useRef(onLinkChange);
     linkCb.current = onLinkChange;
+    const toast = useToast();
+    // The effect below only re-runs per session: it reaches the latest callbacks through this ref.
+    const pasteImageRef = useRef<(image: Blob) => void>(() => undefined);
+    pasteImageRef.current = (image) => {
+      uploadImage(session, image).then(
+        (path) => termRef.current?.paste(`${path} `),
+        (e: Error) => toast({ kind: 'error', title: 'Image non envoyée', detail: e.message }),
+      );
+    };
 
     const send = (data: string) => {
       const ws = wsRef.current;
@@ -92,11 +106,25 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
       },
       paste: async () => {
         try {
+          for (const item of await navigator.clipboard.read()) {
+            const type = item.types.find((t) => UPLOAD_TYPES.includes(t));
+            if (type) return pasteImageRef.current(await item.getType(type));
+          }
+        } catch {
+          // clipboard.read() missing or refused: fall back to plain text
+        }
+        try {
           const text = await navigator.clipboard.readText();
           if (text) termRef.current?.paste(text);
         } catch {
-          // permission refused: nothing to do
+          toast({ kind: 'info', title: 'Collage refusé', detail: 'Autorise l’accès au presse-papiers, ou utilise Ctrl+V.' });
         }
+      },
+      copy: () => {
+        const sel = termRef.current?.getSelection();
+        if (!sel) return false;
+        void navigator.clipboard?.writeText(sel).catch(() => undefined);
+        return true;
       },
     }));
 
@@ -129,29 +157,49 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
       term.loadAddon(unicode);
       term.unicode.activeVersion = '11';
 
-      // Copy / paste: Ctrl+Shift+C / Ctrl+Shift+V (Ctrl+C stays the interrupt key).
+      // Copy / paste. Ctrl+C copies when text is selected and stays the interrupt key otherwise;
+      // Ctrl+V / Cmd+V are left to the browser so its paste event (text or image) reaches us.
+      const copySelection = () => {
+        const sel = term.getSelection();
+        if (sel) void navigator.clipboard?.writeText(sel).catch(() => undefined);
+      };
       term.attachCustomKeyEventHandler((e) => {
         if (e.type !== 'keydown') return true;
         const mod = e.ctrlKey || e.metaKey;
         if (mod && e.shiftKey && e.code === 'KeyC') {
-          const sel = term.getSelection();
-          if (sel) void navigator.clipboard?.writeText(sel).catch(() => undefined);
+          copySelection();
           return false;
         }
-        if (mod && e.shiftKey && e.code === 'KeyV') {
-          void navigator.clipboard
-            ?.readText()
-            .then((t) => t && term.paste(t))
-            .catch(() => undefined);
+        if (mod && e.code === 'KeyC' && !e.shiftKey && !e.altKey && term.hasSelection()) {
+          copySelection();
           return false;
         }
-        if (e.metaKey && e.code === 'KeyC' && term.hasSelection()) {
-          void navigator.clipboard?.writeText(term.getSelection()).catch(() => undefined);
-          return false;
-        }
+        if (mod && e.code === 'KeyV' && !e.altKey) return false; // no preventDefault: the paste event follows
         if (mod && e.shiftKey && e.code === 'KeyK') return false; // reserved for the command palette
         return true;
       });
+
+      // Pasted or dropped images can't travel through the terminal: upload them, type the file path.
+      const imageOf = (files: FileList | undefined | null) => Array.from(files ?? []).find((f) => UPLOAD_TYPES.includes(f.type));
+      const onPaste = (e: ClipboardEvent) => {
+        const image = imageOf(e.clipboardData?.files);
+        if (!image) return; // text: xterm handles it (bracketed paste included)
+        e.preventDefault();
+        e.stopPropagation();
+        pasteImageRef.current(image);
+      };
+      const onDragOver = (e: DragEvent) => {
+        if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+      };
+      const onDrop = (e: DragEvent) => {
+        const image = imageOf(e.dataTransfer?.files);
+        if (!image) return;
+        e.preventDefault();
+        pasteImageRef.current(image);
+      };
+      el.addEventListener('paste', onPaste, true);
+      el.addEventListener('dragover', onDragOver);
+      el.addEventListener('drop', onDrop);
 
       term.onData((data) => {
         let d = data;
@@ -334,6 +382,9 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
         window.clearTimeout(retryTimer);
         window.clearTimeout(resizeTimer);
         cancelAnimationFrame(momentum);
+        el.removeEventListener('paste', onPaste, true);
+        el.removeEventListener('dragover', onDragOver);
+        el.removeEventListener('drop', onDrop);
         el.removeEventListener('touchstart', onTouchStart);
         el.removeEventListener('touchmove', onTouchMove);
         el.removeEventListener('touchend', onTouchEnd);

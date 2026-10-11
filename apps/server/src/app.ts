@@ -46,6 +46,7 @@ import type { Template } from './templates.js';
 import { loadTemplates, toTemplateInfo } from './templates.js';
 import { bridgeTerminal } from './terminal.js';
 import type { TmuxClient } from './tmux/client.js';
+import { MAX_UPLOAD_BYTES, saveUpload, UPLOAD_CONTENT_TYPES, UPLOAD_DIR_NAME, UploadError } from './uploads.js';
 
 export interface AppDeps {
   config: Config;
@@ -261,6 +262,30 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     audit.record('session.closed', ctxOf(req), { name });
     await hub.refreshSessions();
     return { ok: true };
+  });
+
+  // Pasted / dropped images: stored where the session can read them, the path is typed into the terminal.
+  fastify.addContentTypeParser(UPLOAD_CONTENT_TYPES, { parseAs: 'buffer', bodyLimit: MAX_UPLOAD_BYTES }, (_req, body, done) =>
+    done(null, body),
+  );
+
+  fastify.post('/api/sessions/:name/upload', { bodyLimit: MAX_UPLOAD_BYTES }, async (req) => {
+    const { name } = nameParam.parse(req.params);
+    const session = (await sessionService.list()).find((s) => s.name === name);
+    if (!session) throw new HttpError(404, 'not_found', 'Session introuvable.');
+    const type = (req.headers['content-type'] ?? '').split(';')[0]!.trim().toLowerCase();
+    if (!Buffer.isBuffer(req.body)) throw new HttpError(415, 'unsupported', 'Seules les images PNG, JPEG, GIF et WebP sont acceptées.');
+    let file: string;
+    try {
+      file = await saveUpload(config.workspaceDir, type, req.body);
+    } catch (e) {
+      if (e instanceof UploadError) throw new HttpError(400, 'invalid_upload', e.message);
+      throw e;
+    }
+    audit.record('session.upload', ctxOf(req), { name, file, bytes: req.body.length });
+    // Claude runs inside claude-box, where the workspace is mounted at /workspace; a terminal runs on the host.
+    const dir = session.kind === 'claude' ? `/workspace/${UPLOAD_DIR_NAME}` : path.join(config.workspaceDir, UPLOAD_DIR_NAME);
+    return { path: `${dir}/${file}` };
   });
 
   fastify.get('/api/sessions/:name/timeline', async (req) => {

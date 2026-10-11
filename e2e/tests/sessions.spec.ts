@@ -93,3 +93,35 @@ test('command palette opens sessions and actions', async ({ page }) => {
   await page.keyboard.press('?');
   await expect(page.getByRole('dialog', { name: 'Raccourcis clavier' })).toBeVisible();
 });
+
+test('paste: Ctrl+V pastes text, a pasted image is uploaded and its path typed', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Nouvelle session (N)' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nouvelle session' });
+  await dialog.getByText('Terminal', { exact: true }).click();
+  await dialog.getByLabel('Nom').fill('e2e-paste');
+  await dialog.getByRole('button', { name: 'Créer la session' }).click();
+  const rows = page.getByTestId('terminal').locator('.xterm-rows');
+  await expect(rows).toContainText('$', { timeout: 10_000 });
+  await page.getByTestId('terminal').click();
+
+  await page.evaluate(() => navigator.clipboard.writeText('echo pasted-$((40+2))'));
+  await page.keyboard.press('Control+V');
+  await page.keyboard.press('Enter');
+  await expect(rows).toContainText('pasted-42');
+
+  // A screenshot on the clipboard: the browser's paste event carries it as a file.
+  await page.evaluate(() => {
+    const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
+    const dt = new DataTransfer();
+    dt.items.add(new File([png], 'shot.png', { type: 'image/png' }));
+    document.querySelector('.xterm-helper-textarea')!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await expect(rows).toContainText('.kae-uploads/paste-', { timeout: 10_000 });
+  await expect(rows).toContainText('.png');
+
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Fermer e2e-paste' }).click();
+  await expect(page.getByText('Session « e2e-paste » fermée')).toBeVisible();
+});
