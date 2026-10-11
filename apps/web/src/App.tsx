@@ -8,7 +8,7 @@ import { BottomNav, SideNav } from './components/Nav';
 import { NewSessionSheet } from './components/NewSession';
 import { SessionList, Summary } from './components/SessionList';
 import { ShortcutsDialog } from './components/Shortcuts';
-import { Button, IconButton, Kbd, Skeleton } from './components/ui';
+import { Button, Kbd, Skeleton } from './components/ui';
 import { api, onUnauthorized } from './lib/api';
 import { updateAttention } from './lib/favicon';
 import { LiveProvider, useLive } from './lib/live';
