@@ -94,6 +94,26 @@ describe.skipIf(!hasTmux())('real tmux', () => {
     expect(await tmux.hasSession('it-one')).toBe(false);
   });
 
+  it('scrolls a pane through its history in copy mode and leaves it at the bottom', async () => {
+    await tmux.newSession('it-scroll', {
+      cwd: '/tmp',
+      command: ['bash', '-c', 'for i in $(seq 1 200); do echo line$i; done; sleep 30'],
+    });
+    await new Promise((r) => setTimeout(r, 500));
+    const mode = async () =>
+      execFileSync('tmux', ['-L', SOCKET, 'display-message', '-p', '-t', '=it-scroll:', '#{pane_in_mode}:#{scroll_position}']).toString().trim();
+    expect(await mode()).toBe('0:');
+    await tmux.scrollPane('it-scroll', -3); // nothing to scroll back down: no error, no copy mode
+    expect(await mode()).toBe('0:');
+    await tmux.scrollPane('it-scroll', 20);
+    expect(await mode()).toBe('1:20');
+    await tmux.scrollPane('it-scroll', 5);
+    expect(await mode()).toBe('1:25');
+    await tmux.scrollPane('it-scroll', -25);
+    expect(await mode()).toMatch(/^0:/); // scrolled back to the bottom: copy mode exits
+    await tmux.killSession('it-scroll');
+  });
+
   it('keeps a failed command visible and reports it as dead', async () => {
     await tmux.newSession('it-fail', { cwd: '/tmp', command: ['bash', '-c', 'echo "cannot reach claude-box"; exit 3'], keepOnFailure: true });
     await new Promise((r) => setTimeout(r, 500));

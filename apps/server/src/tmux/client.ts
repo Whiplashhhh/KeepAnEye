@@ -38,6 +38,8 @@ export interface TmuxClient {
   newSession(name: string, opts: NewSessionOptions): Promise<void>;
   killSession(name: string): Promise<void>;
   attachCommand(name: string): AttachCommand;
+  /** Scroll the pane's history (tmux copy mode): positive = up, towards older output. */
+  scrollPane(name: string, lines: number): Promise<void>;
 }
 
 // tmux replaces control characters in format output, so use a printable, improbable separator.
@@ -187,6 +189,20 @@ export class RealTmuxClient implements TmuxClient {
 
   attachCommand(name: string): AttachCommand {
     return { file: this.bin, args: [...this.baseArgs(), 'attach-session', '-t', `=${name}`] };
+  }
+
+  async scrollPane(name: string, lines: number): Promise<void> {
+    if (lines === 0) return;
+    const target = `=${name}:`;
+    if (lines > 0) {
+      // -e: leave copy mode by itself once scrolled back to the bottom (tmux >= 3.1; older ones lack the flag).
+      await this.run(['copy-mode', '-e', '-t', target]).catch(() => this.run(['copy-mode', '-t', target]));
+    } else {
+      // Not in copy mode: nothing to scroll back down, and send-keys -X would fail.
+      const inMode = (await this.run(['display-message', '-p', '-t', target, '#{pane_in_mode}'])).trim();
+      if (inMode !== '1') return;
+    }
+    await this.run(['send-keys', '-X', '-t', target, '-N', String(Math.abs(lines)), lines > 0 ? 'scroll-up' : 'scroll-down']);
   }
 }
 

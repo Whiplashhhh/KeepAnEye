@@ -49,6 +49,13 @@ export class FakeTmuxClient implements TmuxClient {
     return { file: 'cat', args: [] };
   }
 
+  readonly scrolls: { name: string; lines: number }[] = [];
+
+  async scrollPane(name: string, lines: number): Promise<void> {
+    if (!this.sessions.has(name)) throw new TmuxError(`can't find session: ${name}`);
+    this.scrolls.push({ name, lines });
+  }
+
   /** Test helper: simulate output in a session. */
   write(name: string, ...lines: string[]): void {
     const s = this.sessions.get(name);

@@ -186,6 +186,62 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
         }
       };
 
+      // Touch scrolling. tmux draws on the alternate screen, so xterm has no scrollback of its own:
+      // a drag is turned into scroll requests the server replays in tmux copy mode.
+      let touchY: number | null = null;
+      let dragging = false;
+      let pending = 0; // px not yet converted to whole lines
+      let velocity = 0; // px/ms, for the flick
+      let lastT = 0;
+      let momentum = 0;
+      const rowHeight = () => (el.querySelector('.xterm-screen')?.clientHeight ?? 0) / term.rows || 18;
+      const scrollBy = (px: number) => {
+        pending += px;
+        const lines = Math.trunc(pending / rowHeight());
+        if (lines === 0) return;
+        pending -= lines * rowHeight();
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'scroll', lines }));
+      };
+      const onTouchStart = (e: TouchEvent) => {
+        cancelAnimationFrame(momentum);
+        touchY = e.touches.length === 1 ? e.touches[0]!.clientY : null;
+        dragging = false;
+        pending = 0;
+        velocity = 0;
+        lastT = e.timeStamp;
+      };
+      const onTouchMove = (e: TouchEvent) => {
+        if (touchY === null || e.touches.length !== 1) return;
+        const y = e.touches[0]!.clientY;
+        if (!dragging && Math.abs(y - touchY) < 8) return;
+        dragging = true;
+        e.preventDefault(); // no page scroll / rubber band while scrolling the terminal
+        const dy = y - touchY;
+        const dt = Math.max(1, e.timeStamp - lastT);
+        velocity = 0.8 * velocity + 0.2 * (dy / dt);
+        touchY = y;
+        lastT = e.timeStamp;
+        scrollBy(dy); // finger down = older output
+      };
+      const onTouchEnd = () => {
+        touchY = null;
+        if (!dragging || Math.abs(velocity) < 0.3) return;
+        let last = performance.now();
+        const step = (now: number) => {
+          const dt = now - last;
+          last = now;
+          velocity *= 0.95 ** (dt / 16);
+          scrollBy(velocity * dt);
+          if (Math.abs(velocity) > 0.05) momentum = requestAnimationFrame(step);
+        };
+        momentum = requestAnimationFrame(step);
+      };
+      el.addEventListener('touchstart', onTouchStart, { passive: true });
+      el.addEventListener('touchmove', onTouchMove, { passive: false });
+      el.addEventListener('touchend', onTouchEnd, { passive: true });
+      el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
       const connect = () => {
         try {
           fit.fit();
@@ -277,6 +333,11 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
         disposed = true;
         window.clearTimeout(retryTimer);
         window.clearTimeout(resizeTimer);
+        cancelAnimationFrame(momentum);
+        el.removeEventListener('touchstart', onTouchStart);
+        el.removeEventListener('touchmove', onTouchMove);
+        el.removeEventListener('touchend', onTouchEnd);
+        el.removeEventListener('touchcancel', onTouchEnd);
         window.removeEventListener('online', onOnline);
         document.removeEventListener('visibilitychange', onOnline);
         ro?.disconnect();

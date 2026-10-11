@@ -193,6 +193,9 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
         </Switch>
       </main>
 
+      {/* Installed iOS PWA: the status bar is translucent, so scrolling content (and the blurred sticky
+          headers) would show through behind the clock. A solid cover keeps that strip clean. */}
+      {!inSession && <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-bg lg:hidden" />}
       {!inSession && <BottomNav badge={waiting} />}
       {!inSession && location === '/' && !!sessions?.length && (
         <button

@@ -65,7 +65,7 @@ export function ActivityPage() {
 
       {groups.map((g) => (
         <section key={g.day} className="mb-8" aria-label={g.day}>
-          <h2 className="sticky top-0 z-10 -mx-1 mb-1 bg-bg/95 px-1 py-2 text-xs font-semibold uppercase tracking-wider text-faint backdrop-blur first-letter:uppercase">
+          <h2 className="sticky top-[env(safe-area-inset-top)] z-10 -mx-1 mb-1 bg-bg/95 px-1 py-2 text-xs font-semibold uppercase tracking-wider text-faint backdrop-blur first-letter:uppercase">
             {g.day}
           </h2>
           <ol className="relative">

@@ -192,6 +192,8 @@ export const terminalClientMessageSchema = z.discriminatedUnion('type', [
     cols: z.number().int().min(2).max(1000),
     rows: z.number().int().min(2).max(500),
   }),
+  // Touch scrolling: positive = towards older output (up), negative = back towards the bottom.
+  z.object({ type: z.literal('scroll'), lines: z.number().int().min(-500).max(500) }),
 ]);
 export type TerminalClientMessage = z.infer<typeof terminalClientMessageSchema>;
 

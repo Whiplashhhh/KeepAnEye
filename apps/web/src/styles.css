@@ -210,6 +210,9 @@ body {
 }
 
 /* xterm: let the container own the background, keep padding inside */
+.kae-terminal {
+  touch-action: none; /* drags are handled in Terminal.tsx (tmux history scroll) */
+}
 .kae-terminal .xterm {
   height: 100%;
   padding: 10px 0 6px 12px;

@@ -55,6 +55,9 @@ export function bridgeTerminal(ws: WebSocket, tmux: TmuxClient, name: string, co
     }
   });
 
+  // Scroll requests run one at a time and in order; a failure (session gone, no history) is not worth a message.
+  let scrolling: Promise<void> = Promise.resolve();
+
   ws.on('message', (raw: RawData, isBinary: boolean) => {
     if (isBinary) return;
     let msg: unknown;
@@ -66,7 +69,10 @@ export function bridgeTerminal(ws: WebSocket, tmux: TmuxClient, name: string, co
     const parsed = terminalClientMessageSchema.safeParse(msg);
     if (!parsed.success) return;
     if (parsed.data.type === 'input') term.write(parsed.data.data);
-    else term.resize(parsed.data.cols, parsed.data.rows);
+    else if (parsed.data.type === 'scroll') {
+      const { lines } = parsed.data;
+      scrolling = scrolling.then(() => tmux.scrollPane(name, lines)).catch(() => undefined);
+    } else term.resize(parsed.data.cols, parsed.data.rows);
   });
 
   ws.on('close', () => {
