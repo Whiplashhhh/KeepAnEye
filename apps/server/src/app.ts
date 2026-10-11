@@ -13,7 +13,7 @@ import {
   secondFactorSchema,
 } from '@kae/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import Fastify from 'fastify';
+import Fastify, { LogController } from 'fastify';
 import type { WebSocket } from 'ws';
 import { WebSocketServer } from 'ws';
 import { z, ZodError } from 'zod';
@@ -83,6 +83,8 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     // tailscale serve proxies from loopback: only then is X-Forwarded-For trusted.
     trustProxy: LOOPBACK_PROXIES,
     bodyLimit: 64 * 1024,
+    // No per-request log lines: the audit log records what matters, journald stays readable.
+    logController: new LogController({ disableRequestLogging: true }),
   });
 
   const audit = new AuditLog(db);
