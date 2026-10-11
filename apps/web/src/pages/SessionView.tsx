@@ -10,13 +10,18 @@ import { Button, EmptyState, IconButton, Segmented, Skeleton, StatusBadge, Statu
 import { STATUS } from '../lib/status';
 import { useLive } from '../lib/live';
 
-/** Tracks the visual viewport so the terminal shrinks above the virtual keyboard. */
-function useVisualViewport(): { height: number; top: number } | null {
+/**
+ * Tracks the visual viewport while the virtual keyboard is open, so the terminal shrinks above it.
+ * Null when the keyboard is closed: the view then sticks to the screen edges, since an installed
+ * iOS PWA reports a visual viewport shorter than the screen and that would leave a gap at the bottom.
+ */
+function useKeyboardViewport(): { height: number; top: number } | null {
   const [vv, setVv] = useState<{ height: number; top: number } | null>(null);
   useEffect(() => {
     const v = window.visualViewport;
     if (!v) return;
-    const update = () => setVv({ height: v.height, top: v.offsetTop });
+    const update = () =>
+      setVv(document.documentElement.clientHeight - v.height > 120 ? { height: v.height, top: v.offsetTop } : null);
     update();
     v.addEventListener('resize', update);
     v.addEventListener('scroll', update);
@@ -51,7 +56,7 @@ export function SessionView({ name }: { name: string }) {
   const termRef = useRef<TerminalHandle>(null);
   const desktop = useIsDesktop();
   const coarse = useCoarsePointer();
-  const vv = useVisualViewport();
+  const vv = useKeyboardViewport();
 
   useEffect(() => setTab('terminal'), [name]);
 
@@ -90,7 +95,7 @@ export function SessionView({ name }: { name: string }) {
 
   return (
     <div
-      className={cx('flex flex-col bg-bg', desktop ? 'h-full' : 'fixed inset-x-0 top-0 z-30 h-dvh')}
+      className={cx('flex flex-col bg-bg', desktop ? 'h-full' : vv ? 'fixed inset-x-0 top-0 z-30' : 'fixed inset-0 z-30')}
       style={style}
     >
       <header className="flex shrink-0 items-center gap-2 border-b border-line bg-elevated px-2 safe-top lg:h-16 lg:px-5">
@@ -199,7 +204,7 @@ export function SessionView({ name }: { name: string }) {
       </div>
 
       {coarse && tab === 'terminal' && (
-        <div className="shrink-0 safe-bottom">
+        <div className={cx('shrink-0 bg-elevated', !vv && 'safe-bottom')}>
           <Keybar term={termRef} />
         </div>
       )}
