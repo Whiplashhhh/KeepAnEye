@@ -37,7 +37,7 @@ export function ActivityPage() {
   }, [merged]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-9 safe-top lg:px-8 lg:pb-10 lg:pt-8">
+    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-[calc(28px+env(safe-area-inset-top))] lg:px-8 lg:pb-10 lg:pt-10">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-fg">Activité</h1>
         <p className="mt-1 text-sm text-muted">Ce que tes sessions Claude ont fait, en temps réel.</p>

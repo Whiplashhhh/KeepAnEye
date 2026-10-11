@@ -44,6 +44,10 @@ for (const [device, opts] of Object.entries(VIEWPORTS)) {
       await expect(page.getByRole('meter', { name: 'CPU' }).filter({ visible: true })).toBeVisible();
       await shot('03-dashboard');
 
+      await page.goto('/settings/audit');
+      await expect(page.getByText('Connexion réussie').first()).toBeVisible();
+      await shot('10-audit');
+
       await page.goto('/s/api-refactor');
       await expect(page.getByTestId('terminal').locator('.xterm-rows')).toContainText('Do you want to proceed', { timeout: 10_000 });
       await shot('04-terminal');
@@ -73,10 +77,6 @@ for (const [device, opts] of Object.entries(VIEWPORTS)) {
       await page.goto('/settings');
       await expect(page.getByText('Ne pas déranger')).toBeVisible();
       await shot('09-settings');
-
-      await page.goto('/settings/audit');
-      await expect(page.getByText('Connexion réussie').first()).toBeVisible();
-      await shot('10-audit');
 
       if (device === 'desktop') {
         await page.goto('/s/webapp');

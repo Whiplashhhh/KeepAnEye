@@ -116,7 +116,7 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-9 safe-top lg:px-8 lg:pb-10 lg:pt-8">
+    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-[calc(28px+env(safe-area-inset-top))] lg:px-8 lg:pb-10 lg:pt-10">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-fg">Réglages</h1>
       </header>
@@ -220,7 +220,7 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
           </Button>
         </Row>
         <Row label="Tous les appareils" hint="Révoque toutes les sessions ouvertes, y compris celle-ci">
-          <Button variant="danger" onClick={logoutAll} loading={logoutAllBusy}>
+          <Button variant="danger-soft" onClick={logoutAll} loading={logoutAllBusy}>
             <ShieldOff className="size-4" aria-hidden />
             Tout déconnecter
           </Button>

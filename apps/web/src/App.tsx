@@ -193,7 +193,7 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
       </main>
 
       {!inSession && <BottomNav badge={waiting} />}
-      {!inSession && location === '/' && (
+      {!inSession && location === '/' && !!sessions?.length && (
         <button
           type="button"
           onClick={openNew}
@@ -222,7 +222,7 @@ function Home({ onNew }: { onNew: () => void }) {
   return (
     <>
       {/* Phone: the dashboard */}
-      <div className="px-4 pb-nav pt-3 safe-top lg:hidden">
+      <div className="px-4 pb-nav pt-[calc(8px+env(safe-area-inset-top))] lg:hidden">
         <header className="flex h-14 items-center justify-between">
           <Brand />
         </header>

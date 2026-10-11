@@ -119,7 +119,7 @@ export function LoginPage({ initialStage, onDone }: { initialStage: Stage; onDon
   };
 
   return (
-    <main className="relative flex min-h-full items-center justify-center overflow-hidden px-4 py-10 safe-top safe-bottom">
+    <main className="relative flex min-h-full items-center justify-center overflow-hidden px-4 pb-[calc(40px+env(safe-area-inset-bottom))] pt-[calc(40px+env(safe-area-inset-top))]">
       <div
         aria-hidden
         className="pointer-events-none absolute left-1/2 top-[-30%] h-[60vh] w-[120vw] -translate-x-1/2 rounded-full bg-accent/10 blur-3xl dark:bg-accent/[0.07]"

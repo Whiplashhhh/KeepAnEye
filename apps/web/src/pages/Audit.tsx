@@ -62,7 +62,7 @@ export function AuditPage() {
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-nav pt-9 safe-top lg:px-8 lg:pb-10 lg:pt-8">
+    <div className="mx-auto w-full max-w-3xl px-4 pb-nav pt-[calc(28px+env(safe-area-inset-top))] lg:px-8 lg:pb-10 lg:pt-10">
       <Link href="/settings" className="-ml-2 mb-3 inline-flex h-10 items-center gap-1.5 rounded-md px-2 text-sm text-muted hover:text-fg">
         <ArrowLeft className="size-4" aria-hidden />
         Réglages

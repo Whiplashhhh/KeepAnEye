@@ -9,7 +9,7 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
 }
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-soft';
 
 const VARIANTS: Record<Variant, string> = {
   primary:
@@ -17,6 +17,7 @@ const VARIANTS: Record<Variant, string> = {
   secondary: 'bg-surface-2 text-fg border border-line hover:border-line-strong hover:bg-surface-3',
   ghost: 'text-muted hover:text-fg hover:bg-surface-2',
   danger: 'bg-error text-white hover:brightness-110 font-semibold dark:text-[#1a0b0b]',
+  'danger-soft': 'border border-error/35 text-error hover:bg-error-soft font-medium',
 };
 
 export const Button = forwardRef<
