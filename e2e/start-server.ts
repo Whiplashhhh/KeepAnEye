@@ -66,6 +66,7 @@ const config: Config = {
   tmuxBin: 'tmux',
   tmuxSocket: socket,
   dockerBin: 'docker',
+  hostLabel: mode === 'demo' ? 'homelab' : 'e2e-host',
   shell: '/bin/bash',
   cookieSecure: true,
   vapidSubject: 'mailto:e2e@localhost',
@@ -133,6 +134,14 @@ async function seedDemo() {
       ? ['bash', '-c', 'cat "$1"; exec env PS1="$2" bash --norc --noprofile', '_', file, ps1]
       : ['bash', '-c', 'cat "$1"; exec sleep 86400', '_', file];
     tmux('new-session', '-d', '-s', s.name, '-x', '96', '-y', '32', '-c', root, '--', ...cmd);
+    if (s === sessions[0]) {
+      // A tuned, discreet status bar, as on a real setup.
+      tmux('set-option', '-g', 'status-style', 'bg=default,fg=colour244');
+      tmux('set-option', '-g', 'status-left', ' #S ');
+      tmux('set-option', '-g', 'status-right', ' %H:%M ');
+      tmux('set-option', '-g', 'window-status-current-format', '');
+      tmux('set-option', '-g', 'window-status-format', '');
+    }
     tmux('set-option', '-t', `=${s.name}:`, '@kae_kind', s.kind);
     if (s.project) tmux('set-option', '-t', `=${s.name}:`, '@kae_project', s.project);
   }

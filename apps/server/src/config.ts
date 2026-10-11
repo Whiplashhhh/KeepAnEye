@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, hostname } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -34,6 +34,7 @@ const envSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]{1,40}$/)
     .optional(),
   KAE_DOCKER_BIN: z.string().default('docker'),
+  KAE_HOST_LABEL: z.string().max(60).optional(),
   KAE_SHELL: z.string().optional(),
   KAE_COOKIE_SECURE: z
     .enum(['true', 'false'])
@@ -58,6 +59,8 @@ export interface Config {
   tmuxBin: string;
   tmuxSocket: string | undefined;
   dockerBin: string;
+  /** Name shown in the host strip (defaults to the machine hostname). */
+  hostLabel: string;
   shell: string;
   cookieSecure: boolean;
   vapidSubject: string;
@@ -100,6 +103,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, envFile = env.K
     tmuxBin: e.KAE_TMUX_BIN,
     tmuxSocket: e.KAE_TMUX_SOCKET,
     dockerBin: e.KAE_DOCKER_BIN,
+    hostLabel: e.KAE_HOST_LABEL ?? hostname(),
     shell: e.KAE_SHELL ?? env.SHELL ?? '/bin/bash',
     cookieSecure: e.KAE_COOKIE_SECURE,
     vapidSubject: e.KAE_VAPID_SUBJECT,

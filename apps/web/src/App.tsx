@@ -145,7 +145,7 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
               <Command className="size-3.5" aria-hidden />
               <Kbd>Ctrl K</Kbd>
             </button>
-            <Button variant="primary" className="h-9 px-3" onClick={openNew} aria-label="Nouvelle session (N)">
+            <Button className="h-9 px-3" onClick={openNew} aria-label="Nouvelle session (N)">
               <Plus className="size-4" aria-hidden />
               Nouvelle
             </Button>
@@ -225,9 +225,6 @@ function Home({ onNew }: { onNew: () => void }) {
       <div className="px-4 pb-nav pt-3 safe-top lg:hidden">
         <header className="flex h-14 items-center justify-between">
           <Brand />
-          <IconButton label="Nouvelle session" onClick={onNew} className="-mr-2">
-            <Plus className="size-5" />
-          </IconButton>
         </header>
         <HostStrip host={host} className="mb-4" />
         <div className="mb-3 flex items-end justify-between px-0.5">

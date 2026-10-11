@@ -22,7 +22,7 @@ export function ActivityPage() {
   const merged = useMemo(() => {
     if (!items) return null;
     const seen = new Set(items.map((i) => i.id));
-    return [...liveActivity.filter((i) => !seen.has(i.id)), ...items];
+    return [...liveActivity.filter((i) => !seen.has(i.id)), ...items].sort((a, b) => b.ts - a.ts || b.id - a.id);
   }, [items, liveActivity]);
 
   const groups = useMemo(() => {
@@ -37,7 +37,7 @@ export function ActivityPage() {
   }, [merged]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-4 safe-top lg:px-8 lg:pb-10 lg:pt-8">
+    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-9 safe-top lg:px-8 lg:pb-10 lg:pt-8">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-fg">Activité</h1>
         <p className="mt-1 text-sm text-muted">Ce que tes sessions Claude ont fait, en temps réel.</p>

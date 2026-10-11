@@ -6,7 +6,8 @@ import { Keybar } from '../components/Keybar';
 import type { TerminalHandle } from '../components/Terminal';
 import { Terminal } from '../components/Terminal';
 import { Timeline } from '../components/Timeline';
-import { Button, EmptyState, IconButton, Segmented, Skeleton, StatusBadge, cx } from '../components/ui';
+import { Button, EmptyState, IconButton, Segmented, Skeleton, StatusBadge, StatusDot, cx } from '../components/ui';
+import { STATUS } from '../lib/status';
 import { useLive } from '../lib/live';
 
 /** Tracks the visual viewport so the terminal shrinks above the virtual keyboard. */
@@ -106,11 +107,24 @@ export function SessionView({ name }: { name: string }) {
               <>
                 <h1 className="flex min-w-0 items-center gap-2">
                   <span className="truncate font-mono text-[15px] font-semibold text-fg">{session.name}</span>
-                  {status && <StatusBadge status={status} size="sm" />}
+                  {status && (
+                    <span className="hidden sm:inline-flex">
+                      <StatusBadge status={status} size="sm" />
+                    </span>
+                  )}
                 </h1>
-                <p className="flex items-center gap-1.5 truncate text-xs text-muted">
-                  {isClaude ? <Bot className="size-3.5 shrink-0" aria-hidden /> : <SquareTerminal className="size-3.5 shrink-0" aria-hidden />}
-                  <span className="truncate">{isClaude ? `Claude · ${session.project ?? 'projet inconnu'}` : 'Terminal sur l’hôte'}</span>
+                <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted">
+                  {status && (
+                    <span className={cx('inline-flex shrink-0 items-center gap-1.5 font-medium sm:hidden', STATUS[status].text)}>
+                      <StatusDot status={status} />
+                      {STATUS[status].label}
+                      <span className="text-faint" aria-hidden>
+                        ·
+                      </span>
+                    </span>
+                  )}
+                  {isClaude ? <Bot className="hidden size-3.5 shrink-0 sm:block" aria-hidden /> : <SquareTerminal className="size-3.5 shrink-0" aria-hidden />}
+                  <span className="truncate">{isClaude ? (session.project ?? 'projet inconnu') : 'Terminal sur l’hôte'}</span>
                 </p>
               </>
             ) : (
@@ -148,10 +162,12 @@ export function SessionView({ name }: { name: string }) {
             <IconButton label="Fermer la session" className="lg:hidden" onClick={() => setClosing(true)}>
               <Trash2 className="size-5" />
             </IconButton>
-            <Button variant="ghost" className="hidden lg:inline-flex" onClick={() => setClosing(true)}>
-              <Trash2 className="size-4" aria-hidden />
-              Fermer
-            </Button>
+            <span className="hidden lg:block">
+              <Button variant="ghost" onClick={() => setClosing(true)}>
+                <Trash2 className="size-4" aria-hidden />
+                Fermer
+              </Button>
+            </span>
           </>
         )}
       </header>

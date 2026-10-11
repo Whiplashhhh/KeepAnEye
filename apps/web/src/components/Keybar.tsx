@@ -86,6 +86,9 @@ export function Keybar({ term }: { term: React.RefObject<TerminalHandle | null> 
       <Key label="Flèche bas" onPress={() => send('\x1b[B')}>
         <ArrowDown className="size-4" />
       </Key>
+      <Key label="Entrée" onPress={() => send('\r')} wide>
+        <CornerDownLeft className="size-4" />
+      </Key>
       <Key label="Flèche gauche" onPress={() => send('\x1b[D')}>
         <ArrowLeft className="size-4" />
       </Key>
@@ -94,9 +97,6 @@ export function Keybar({ term }: { term: React.RefObject<TerminalHandle | null> 
       </Key>
       <Key label="Coller" onPress={() => void term.current?.paste()}>
         <ClipboardPaste className="size-4" />
-      </Key>
-      <Key label="Entrée" onPress={() => send('\r')} wide>
-        <CornerDownLeft className="size-4" />
       </Key>
     </div>
   );

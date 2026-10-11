@@ -31,7 +31,7 @@ export const SessionCard = memo(function SessionCard({
         'hover:border-line-strong focus-visible:outline-offset-0',
         waiting ? 'border-waiting/45 shadow-[inset_3px_0_0_var(--waiting)]' : 'border-line',
         status === 'error' && 'border-error/40 shadow-[inset_3px_0_0_var(--error)]',
-        selected && 'border-accent/70 bg-surface-2 ring-1 ring-accent/40',
+        selected && 'bg-surface-2 ring-1 ring-line-strong',
       )}
     >
       <div className="flex items-start justify-between gap-3">

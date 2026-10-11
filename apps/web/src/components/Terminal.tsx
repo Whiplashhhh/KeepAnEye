@@ -106,7 +106,7 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
       const term = new XTerm({
         fontFamily: '"JetBrains Mono Variable", ui-monospace, monospace',
         fontSize: small ? 12.5 : 13.5,
-        lineHeight: 1.18,
+        lineHeight: 1,
         letterSpacing: 0,
         cursorBlink: true,
         cursorStyle: 'bar',

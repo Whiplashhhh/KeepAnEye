@@ -122,7 +122,7 @@ export function CommandPalette({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Ouvrir une session, créer, changer de thème…"
-              className="h-13 flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-faint"
+              className="h-13 flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-faint focus-visible:outline-none"
               role="combobox"
               aria-expanded="true"
               aria-controls="palette-list"

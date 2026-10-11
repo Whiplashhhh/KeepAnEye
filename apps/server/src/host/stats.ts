@@ -65,6 +65,7 @@ export class HostStats {
   constructor(
     private readonly probe: ContainerProbe,
     private readonly diskPath: string = os.homedir(),
+    private readonly label: string = os.hostname(),
   ) {}
 
   async read(): Promise<HostInfo> {
@@ -91,7 +92,7 @@ export class HostStats {
     }
     const [l1, l5, l15] = os.loadavg();
     return {
-      hostname: os.hostname(),
+      hostname: this.label,
       cpu,
       load: [l1 ?? 0, l5 ?? 0, l15 ?? 0],
       memUsed: mem.used,

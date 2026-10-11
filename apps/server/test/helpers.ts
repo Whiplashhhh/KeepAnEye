@@ -34,6 +34,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     tmuxBin: 'tmux',
     tmuxSocket: undefined,
     dockerBin: 'docker',
+    hostLabel: 'test-host',
     shell: '/bin/bash',
     cookieSecure: true,
     vapidSubject: 'mailto:test@example.com',

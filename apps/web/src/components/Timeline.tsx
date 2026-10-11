@@ -5,7 +5,12 @@ import { api } from '../lib/api';
 import { clock } from '../lib/format';
 import { EmptyState, Skeleton, cx } from './ui';
 
-function Item({ item }: { item: TimelineItem }) {
+/** "/workspace/<project>/src/a.ts" → "src/a.ts": the project is already in the header. */
+function shortPath(s: string): string {
+  return s.replace(/^\/workspace\/[^/\s]+\//, '');
+}
+
+function Item({ item, grouped }: { item: TimelineItem; grouped: boolean }) {
   const time = item.ts ? <time className="tabular text-[11px] text-faint">{clock(item.ts)}</time> : null;
   switch (item.kind) {
     case 'user':
@@ -37,13 +42,13 @@ function Item({ item }: { item: TimelineItem }) {
       );
     case 'tool':
       return (
-        <li className="flex animate-rise items-center gap-3 pl-1">
+        <li className={cx('flex animate-rise items-center gap-3 pl-1', grouped && '!mt-1.5')}>
           <div className="flex size-5 shrink-0 items-center justify-center text-faint">
             <Wrench className="size-3.5" aria-hidden />
           </div>
           <p className="min-w-0 flex-1 truncate font-mono text-xs text-muted">
             <span className="font-semibold text-fg/80">{item.tool}</span>
-            {item.summary && <span className="text-faint"> · {item.summary}</span>}
+            {item.summary && <span className="text-faint"> · {shortPath(item.summary)}</span>}
           </p>
           {time}
         </li>
@@ -130,7 +135,7 @@ export function Timeline({ session }: { session: string }) {
           <ul className="space-y-1 border-t border-line px-4 py-3">
             {d.filesTouched.map((f) => (
               <li key={f} className="truncate font-mono text-xs text-muted" title={f}>
-                {f}
+                {shortPath(f)}
               </li>
             ))}
           </ul>
@@ -138,7 +143,7 @@ export function Timeline({ session }: { session: string }) {
       )}
       <ol className="space-y-4" aria-label="Timeline de la session Claude">
         {d.items.map((it, i) => (
-          <Item key={i} item={it} />
+          <Item key={i} item={it} grouped={it.kind === 'tool' && d.items[i - 1]?.kind === 'tool'} />
         ))}
       </ol>
       <div ref={bottomRef} />

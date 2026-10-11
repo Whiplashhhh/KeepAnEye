@@ -76,8 +76,12 @@ export class ClaudeTracker extends EventEmitter<{ change: [StatusChange] }> {
   activity(limit = 100, before?: number): ActivityItem[] {
     const rows = (
       before
-        ? this.db.prepare('SELECT * FROM activity WHERE id < ? ORDER BY id DESC LIMIT ?').all(before, limit)
-        : this.db.prepare('SELECT * FROM activity ORDER BY id DESC LIMIT ?').all(limit)
+        ? this.db
+            .prepare(
+              `SELECT * FROM activity WHERE (ts, id) < (SELECT ts, id FROM activity WHERE id = ?) ORDER BY ts DESC, id DESC LIMIT ?`,
+            )
+            .all(before, limit)
+        : this.db.prepare('SELECT * FROM activity ORDER BY ts DESC, id DESC LIMIT ?').all(limit)
     ) as ActivityItem[];
     return rows.map((r) => ({ id: r.id, ts: r.ts, session: r.session, status: r.status, text: r.text }));
   }

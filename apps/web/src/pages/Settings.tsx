@@ -116,7 +116,7 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-4 safe-top lg:px-8 lg:pb-10 lg:pt-8">
+    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-9 safe-top lg:px-8 lg:pb-10 lg:pt-8">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-fg">Réglages</h1>
       </header>
@@ -176,7 +176,7 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
                     type="time"
                     value={settings.dnd.start}
                     onChange={(e) => e.target.value && void save({ ...settings, dnd: { ...settings.dnd, start: e.target.value } })}
-                    className="tabular h-10 rounded-md border border-line bg-surface-2 px-2.5 text-fg outline-none focus:border-accent"
+                    className="tabular h-10 rounded-md border border-line bg-surface-2 px-2.5 text-fg outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
                   />
                 </label>
                 <label className="flex items-center gap-2 text-sm text-muted">
@@ -185,7 +185,7 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
                     type="time"
                     value={settings.dnd.end}
                     onChange={(e) => e.target.value && void save({ ...settings, dnd: { ...settings.dnd, end: e.target.value } })}
-                    className="tabular h-10 rounded-md border border-line bg-surface-2 px-2.5 text-fg outline-none focus:border-accent"
+                    className="tabular h-10 rounded-md border border-line bg-surface-2 px-2.5 text-fg outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
                   />
                 </label>
               </div>

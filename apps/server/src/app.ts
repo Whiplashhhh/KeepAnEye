@@ -99,7 +99,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     claudeBoxDir: config.claudeBoxDir,
     claudeHomeDir: config.claudeHomeDir,
   });
-  const hostStats = new HostStats(deps.containerProbe);
+  const hostStats = new HostStats(deps.containerProbe, undefined, config.hostLabel);
   const hub = new LiveHub(sessionService, hostStats);
   const watcher = new EventsWatcher(db, { file: config.eventsFile }, (ev) => tracker.apply(ev));
 

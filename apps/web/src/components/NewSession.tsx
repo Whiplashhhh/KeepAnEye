@@ -146,7 +146,7 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
                   id="ns-project"
                   value={project}
                   onChange={(e) => setProject(e.target.value)}
-                  className="h-11 w-full appearance-none rounded-md border border-line bg-surface pl-9 pr-9 font-mono text-sm text-fg outline-none transition-colors focus:border-accent"
+                  className="h-11 w-full appearance-none rounded-md border border-line bg-surface pl-9 pr-9 font-mono text-sm text-fg outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/25"
                 >
                   {(projects ?? []).map((p) => (
                     <option key={p} value={p}>
@@ -207,7 +207,7 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
             aria-invalid={!nameValid || nameTaken}
             aria-describedby="ns-name-help"
             className={cx(
-              'h-11 w-full rounded-md border bg-surface px-3 font-mono text-sm text-fg outline-none transition-colors focus:border-accent',
+              'h-11 w-full rounded-md border bg-surface px-3 font-mono text-sm text-fg outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/25',
               !nameValid || nameTaken ? 'border-error/60' : 'border-line',
             )}
           />
