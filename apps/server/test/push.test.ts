@@ -92,14 +92,40 @@ describe('PushService', () => {
 
   it('respects per-type settings and DND', async () => {
     const { push, sent } = setup(at(23, 0));
-    push.setSettings({ types: { waiting: true, done: false, error: true }, dnd: { enabled: false, start: '22:00', end: '07:00' } });
+    push.setSettings({ types: { waiting: true, done: false, error: true }, dnd: { enabled: false, start: '22:00', end: '07:00' }, doneMinMinutes: 0 });
     await handleStatusChange(push, change('done'));
     expect(sent).toHaveLength(0);
     await handleStatusChange(push, change('waiting'));
     expect(sent).toHaveLength(1);
-    push.setSettings({ types: { waiting: true, done: true, error: true }, dnd: { enabled: true, start: '22:00', end: '07:00' } });
+    push.setSettings({ types: { waiting: true, done: true, error: true }, dnd: { enabled: true, start: '22:00', end: '07:00' }, doneMinMinutes: 0 });
     await handleStatusChange(push, change('waiting'));
     expect(sent).toHaveLength(1);
+  });
+
+  it('only notifies "done" for tasks that ran long enough', async () => {
+    const { push, sent } = setup();
+    push.setSettings({ ...DEFAULT_NOTIFICATION_SETTINGS, doneMinMinutes: 10 });
+    const min = 60_000;
+    const t0 = 1_000_000_000_000;
+    const withEvent = (c: StatusChange, hook: string, ts: number): StatusChange => ({ ...c, event: { hook, ts } as ClaudeEvent });
+    // Each event is handled "now" (as it arrives), so the 2-minute staleness guard never kicks in.
+    const prompt = (ts: number) => handleStatusChange(push, withEvent(change('working', 'done'), 'UserPromptSubmit', ts), ts);
+    const stop = (ts: number) => handleStatusChange(push, withEvent(change('done'), 'Stop', ts), ts);
+    prompt(t0);
+    expect(stop(t0 + 3 * min)).toBeNull(); // 3 minutes: silent
+    prompt(t0 + 4 * min);
+    prompt(t0 + 5 * min); // a prompt sent while still working restarts the clock
+    expect(stop(t0 + 12 * min)).toBeNull(); // 7 minutes since the last prompt
+    prompt(t0 + 13 * min);
+    await stop(t0 + 24 * min); // 11 minutes
+    expect(sent).toHaveLength(1);
+    // Unknown start (server restarted mid-task): notify rather than risk missing it.
+    await stop(t0 + 30 * min);
+    expect(sent).toHaveLength(2);
+    // Questions are never filtered.
+    prompt(t0 + 31 * min);
+    await handleStatusChange(push, withEvent(change('waiting'), 'Notification', t0 + 31 * min + 1000), t0 + 31 * min + 1000);
+    expect(sent).toHaveLength(3);
   });
 
   it('drops expired subscriptions', async () => {

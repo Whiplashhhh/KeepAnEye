@@ -167,6 +167,22 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
                 />
               </Row>
             ))}
+            <Row label="Durée minimale" hint="Pas de notification « terminée » pour les tâches plus courtes">
+              <select
+                aria-label="Durée minimale d’une tâche avant notification"
+                value={settings.doneMinMinutes}
+                onChange={(e) => void save({ ...settings, doneMinMinutes: Number(e.target.value) })}
+                className="h-10 rounded-md border border-line bg-surface-2 px-2.5 text-fg outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
+              >
+                {[...new Set([0, 1, 2, 5, 10, 15, 30, 60, settings.doneMinMinutes])]
+                  .sort((a, b) => a - b)
+                  .map((m) => (
+                    <option key={m} value={m}>
+                      {m === 0 ? 'Toujours' : `${m} min`}
+                    </option>
+                  ))}
+              </select>
+            </Row>
             <Row label="Ne pas déranger" hint="Aucune notification sur cette plage horaire">
               <Switch label="Ne pas déranger" checked={settings.dnd.enabled} onChange={(v) => void save({ ...settings, dnd: { ...settings.dnd, enabled: v } })} />
             </Row>

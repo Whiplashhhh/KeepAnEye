@@ -21,10 +21,18 @@ export function notificationFor(change: StatusChange): { type: NotifyType; title
 }
 
 export function handleStatusChange(push: PushService, change: StatusChange, now = Date.now()): Promise<number> | null {
+  // A new prompt keeps the status at "working", so it must be recorded before the no-transition check.
+  if (change.event.hook === 'UserPromptSubmit') push.taskStartedAt.set(change.session, change.event.ts);
   if (change.from === change.to) return null;
   if (now - change.event.ts > MAX_EVENT_AGE_MS) return null;
   const n = notificationFor(change);
   if (!n) return null;
+  if (n.type === 'done') {
+    const startedAt = push.taskStartedAt.get(change.session);
+    push.taskStartedAt.delete(change.session);
+    const minMs = push.getSettings().doneMinMinutes * 60_000;
+    if (startedAt !== undefined && change.event.ts - startedAt < minMs) return null; // quick task: not worth a ping
+  }
   return push.notify(n.type, {
     title: n.title,
     body: n.body,

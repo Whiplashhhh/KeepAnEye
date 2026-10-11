@@ -37,6 +37,8 @@ export function inDoNotDisturb(settings: NotificationSettings, date: Date): bool
 }
 
 export class PushService {
+  /** When the current task of each session started (last user prompt). Lost on restart: then "done" always notifies. */
+  readonly taskStartedAt = new Map<string, number>();
   private readonly vapid: VapidKeys;
   private readonly sender: PushSender;
 

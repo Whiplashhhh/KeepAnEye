@@ -141,12 +141,15 @@ const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Heure invalide (HH:M
 export const notificationSettingsSchema = z.object({
   types: z.object({ waiting: z.boolean(), done: z.boolean(), error: z.boolean() }),
   dnd: z.object({ enabled: z.boolean(), start: hhmm, end: hhmm }),
+  /** "Task done" is only notified when the task ran at least this many minutes (0 = always). */
+  doneMinMinutes: z.number().int().min(0).max(240).default(0),
 });
 export type NotificationSettings = z.infer<typeof notificationSettingsSchema>;
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   types: { waiting: true, done: true, error: true },
   dnd: { enabled: false, start: '22:30', end: '07:30' },
+  doneMinMinutes: 0,
 };
 
 // ---------- Request bodies ----------
