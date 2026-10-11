@@ -1,0 +1,34 @@
+{
+  "templates": [
+    {
+      "id": "terminal",
+      "label": "Terminal",
+      "description": "Un shell simple sur l'hôte",
+      "kind": "terminal",
+      "command": [],
+      "cwd": "{home}"
+    },
+    {
+      "id": "claude",
+      "label": "Claude dans claude-box",
+      "description": "Claude Code isolé dans le conteneur, sur un projet",
+      "kind": "claude",
+      "requiresProject": true,
+      "cwd": "{claudeBoxDir}",
+      "command": [
+        "docker", "compose", "-f", "{claudeBoxDir}/compose.yml",
+        "exec", "-u", "claude", "-w", "/workspace/{project}",
+        "-e", "KEEP_AN_EYE_SESSION={session}",
+        "claude", "claude", "{flags}"
+      ],
+      "flags": [
+        {
+          "id": "autonomous",
+          "label": "Autonome",
+          "description": "Lance claude --dangerously-skip-permissions : aucune confirmation demandée",
+          "args": ["--dangerously-skip-permissions"]
+        }
+      ]
+    }
+  ]
+}
