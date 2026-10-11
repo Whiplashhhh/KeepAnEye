@@ -1,0 +1,28 @@
+# Service systemd *utilisateur* pour Keep An Eye.
+# Installation : voir README (section « Service systemd »).
+#   mkdir -p ~/.config/systemd/user && cp deploy/keep-an-eye.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now keep-an-eye
+#   sudo loginctl enable-linger "$USER"   # pour tourner sans session ouverte
+
+[Unit]
+Description=Keep An Eye — tour de contrôle tmux et Claude Code
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adapte si l'appli n'est pas dans ~/keep-an-eye ou si node n'est pas dans /usr/bin (nvm : `which node`).
+WorkingDirectory=%h/keep-an-eye
+ExecStart=/usr/bin/node %h/keep-an-eye/apps/server/dist/index.js
+Environment=NODE_ENV=production
+Restart=on-failure
+RestartSec=3
+UMask=0077
+
+# Important : si l'appli démarre le premier serveur tmux, celui-ci est un processus enfant du service.
+# KillMode=process garantit qu'un redémarrage de l'appli ne tue PAS tmux ni tes sessions.
+KillMode=process
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

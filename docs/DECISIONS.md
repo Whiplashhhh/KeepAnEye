@@ -22,3 +22,17 @@ Une ligne par décision : décision — raison.
 - Routage frontend avec `wouter` (2 Ko) — routeur minimal suffisant.
 - Service worker écrit à la main plutôt que `vite-plugin-pwa` — il ne fait que précharger l'app shell et gérer les push, tout reste lisible.
 - Activité = fil des changements de statut Claude ; le journal d'audit est une sous-page de Réglages — 3 entrées de navigation maximum.
+- Le hook Claude ne garde que les champs utiles (commande, chemin, motif…) tronqués, au lieu de `. + {…}` — les lignes restent petites et le contenu des fichiers écrits par Claude ne fuit pas dans les événements.
+- Le hook vide toujours son entrée standard et sort en 0 — il ne peut ni bloquer Claude ni provoquer d'erreur de tube.
+- Hooks installés via un petit script `~/.claude/keep-an-eye-hook.sh` référencé dans `settings.json` — installation idempotente, désinstallation propre, sauvegarde du fichier avant modification.
+- `StopFailure` est reconnu s'il arrive mais n'est pas installé par défaut — hook récent, absent des versions plus anciennes de Claude Code.
+- Unité systemd en `KillMode=process`, sans `NoNewPrivileges` — un serveur tmux démarré par l'appli survit aux redémarrages et `sudo` reste utilisable dans les terminaux.
+- `Ctrl K` ouvre la palette sauf dans le terminal (où c'est « effacer jusqu'à la fin de ligne ») ; `Ctrl Shift K` l'ouvre partout.
+- Copier / coller dans le terminal : `Ctrl Shift C` / `Ctrl Shift V` (Ctrl C reste l'interruption), plus un bouton « Coller » dans la barre de touches mobile.
+- Le terminal attend une vraie mise en page avant de s'attacher et n'envoie jamais de taille < 5 lignes — sinon tmux réduirait la fenêtre et pousserait l'écran dans l'historique.
+- Pour une session Claude, « dernière activité » = dernier événement de hook — l'interface de Claude redessine sans cesse, l'activité tmux ne veut rien dire.
+- L'aperçu retire cadres, invites vides et indications d'interface — sinon les dernières lignes d'une session Claude ne sont que la bordure de sa zone de saisie.
+- Les specs e2e qui ne testent pas la connexion utilisent une session préfabriquée par le serveur de test — un code TOTP ne sert qu'une fois, enchaîner les connexions imposerait d'attendre 30 s à chaque test.
+- Captures d'écran sur un vrai tmux (socket dédié) avec des contenus et des événements de démonstration réalistes, `KAE_HOST_LABEL=homelab` — ce qu'on voit est ce que l'appli affiche réellement.
+- Les fichiers statiques sont indexés au démarrage (`@fastify/static`, `wildcard: false`) — une route par fichier, le reste part vers l'app ; il faut redémarrer après un build (documenté).
+- Hôte affiché via `KAE_HOST_LABEL` (défaut : hostname) — le hostname d'un conteneur ou d'une VM n'est pas toujours parlant.
