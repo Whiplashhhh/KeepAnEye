@@ -9,6 +9,11 @@ describe('readPane', () => {
     expect(readPane(['✻ Réflexion… (12s · esc to interrupt)', '', '> ']).busy).toBe(true);
     const dialog = ['Bash command', '', ' Do you want to proceed?', ' ❯ 1. Yes', '   2. No', ' Esc to cancel'];
     expect(readPane(dialog)).toEqual({ busy: false, waiting: 'Do you want to proceed?' });
+    const ask = ['Quelle base de données ?', '', '❯ 1. PostgreSQL', '  2. SQLite', '  3. Type something.', 'Enter to select · Esc to cancel'];
+    expect(readPane(ask)).toEqual({ busy: false, waiting: 'Quelle base de données ?' });
+    const perm = ['Do you want to proceed?', '❯ 1. Yes, and don’t ask again for npm commands', '  2. Yes', '  3. No, and tell Claude what to do differently'];
+    expect(readPane(perm).waiting).toBe('Do you want to proceed?');
+    expect(readPane(['Voici les étapes :', '1. Installer', '2. Lancer', '> ']).waiting).toBeNull();
     expect(readPane(['> ', '? for shortcuts'])).toEqual({ busy: false, waiting: null });
   });
 

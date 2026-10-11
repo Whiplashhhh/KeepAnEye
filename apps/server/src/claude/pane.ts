@@ -14,9 +14,11 @@ import type { ClaudeTracker } from './tracker.js';
 
 const TAIL_LINES = 14;
 const BUSY = /esc to interrupt/i;
-// Permission / choice dialogs: "Do you want to proceed?", "❯ 1. Yes", footer "Esc to cancel".
-const QUESTION = /\b(do you want to|would you like to|allow this)\b.*\?/i;
-const CHOICE = /^[\s│┃❯>]*1\.\s+(yes|oui)\b/i;
+// Choice dialogs (permissions, questions): a numbered list with a ❯ cursor on one option, an editable
+// "Type something" option, and an "Esc to cancel" footer. The first option is not always "Yes".
+const OPTION = /^[\s│┃]*[❯>]?\s*\d+\.\s+\S/;
+const CURSOR = /^[\s│┃]*[❯>]\s*\d+\.\s+\S/;
+const TYPE_SOMETHING = /\btype something\b/i;
 const CANCEL = /\besc to cancel\b/i;
 
 export interface PaneReading {
@@ -29,10 +31,16 @@ export function readPane(lines: string[]): PaneReading {
   const tail = lines.filter((l) => l.trim() !== '').slice(-TAIL_LINES);
   const busy = tail.some((l) => BUSY.test(l));
   if (busy) return { busy: true, waiting: null };
-  const choice = tail.some((l) => CHOICE.test(l));
-  const cancel = tail.some((l) => CANCEL.test(l));
-  if (!choice && !cancel) return { busy: false, waiting: null };
-  const q = tail.map((l) => l.replace(/^[\s│┃]+|[\s│┃]+$/g, '')).filter((l) => QUESTION.test(l)).pop();
+  const options = tail.filter((l) => OPTION.test(l)).length;
+  const dialog =
+    tail.some((l) => CANCEL.test(l) || TYPE_SOMETHING.test(l)) || (options >= 2 && tail.some((l) => CURSOR.test(l)));
+  if (!dialog) return { busy: false, waiting: null };
+  const first = tail.findIndex((l) => OPTION.test(l));
+  const before = first < 0 ? tail : tail.slice(0, first);
+  const q = before
+    .map((l) => l.replace(/^[\s│┃]+|[\s│┃]+$/g, ''))
+    .filter((l) => l.endsWith('?'))
+    .pop();
   return { busy: false, waiting: q ?? 'Claude attend ta réponse' };
 }
 
