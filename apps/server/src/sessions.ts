@@ -51,7 +51,9 @@ export class SessionService {
       claude = {
         status: crashed ? 'error' : (state?.status ?? 'idle'),
         lastEvent: state?.lastEvent ?? null,
-        lastMessage: crashed ? `Le processus s'est arrêté (code ${s.deadStatus})` : (state?.lastMessage ?? null),
+        lastMessage: crashed
+          ? `Le processus s'est arrêté${s.deadStatus! > 0 ? ` (code ${s.deadStatus})` : ''}. Ouvre le terminal pour voir pourquoi.`
+          : (state?.lastMessage ?? null),
         updatedAt: state?.updatedAt ?? null,
         hasTranscript: !!resolveTranscriptPath(state?.transcriptPath ?? null, this.opts.claudeHomeDir),
       };
@@ -113,6 +115,7 @@ export class SessionService {
       command: expanded.command,
       env: { KEEP_AN_EYE_SESSION: input.name },
       userOptions,
+      keepOnFailure: template.keepOnFailure,
     });
     return { name: input.name };
   }

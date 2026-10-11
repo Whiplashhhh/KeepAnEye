@@ -23,6 +23,11 @@ async function main(): Promise<void> {
   if (!isAdminReady(db)) {
     app.fastify.log.warn('Aucun compte configuré : lance « npm run admin:init » sur le serveur.');
   }
+  if (!config.allowedOrigins.some((o) => o.startsWith('https://'))) {
+    app.fastify.log.warn(
+      `KAE_ALLOWED_ORIGINS ne contient aucune URL https (${config.allowedOrigins.join(', ')}) : ajoute l'adresse servie par tailscale serve, sinon la connexion sera refusée.`,
+    );
+  }
   await app.fastify.listen({ host: config.host, port: config.port });
 
   const shutdown = async () => {

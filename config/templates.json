@@ -14,6 +14,7 @@
       "description": "Claude Code isolé dans le conteneur, sur un projet",
       "kind": "claude",
       "requiresProject": true,
+      "keepOnFailure": true,
       "cwd": "{claudeBoxDir}",
       "command": [
         "docker", "compose", "-f", "{claudeBoxDir}/compose.yml",

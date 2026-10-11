@@ -14,6 +14,8 @@ const templateSchema = z.object({
   requiresProject: z.boolean().default(false),
   /** argv with placeholders: {session} {project} {home} {claudeBoxDir} {workspaceDir}; "{flags}" alone expands to the selected flags' args. Empty = default shell. */
   command: z.array(z.string().max(500)).max(64).default([]),
+  /** Keep the session open with its output if the command fails (e.g. claude-box is down). */
+  keepOnFailure: z.boolean().default(false),
   /** Working directory (placeholders allowed). Defaults to {home}. */
   cwd: z.string().max(500).default('{home}'),
   flags: z

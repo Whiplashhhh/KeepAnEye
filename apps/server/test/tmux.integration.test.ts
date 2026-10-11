@@ -80,6 +80,21 @@ describe.skipIf(!hasTmux())('real tmux', () => {
     expect(await tmux.hasSession('it-one')).toBe(false);
   });
 
+  it('keeps a failed command visible and reports it as dead', async () => {
+    await tmux.newSession('it-fail', { cwd: '/tmp', command: ['bash', '-c', 'echo "cannot reach claude-box"; exit 3'], keepOnFailure: true });
+    await new Promise((r) => setTimeout(r, 500));
+    const s = (await tmux.listSessions()).find((x) => x.name === 'it-fail');
+    expect(s).toBeDefined();
+    expect(s!.deadStatus).not.toBeNull();
+    expect(s!.deadStatus).not.toBe(0);
+    expect((await tmux.capturePane('it-fail', 10)).join('\n')).toContain('cannot reach claude-box');
+    await tmux.killSession('it-fail');
+    // A successful command still closes its session.
+    await tmux.newSession('it-ok', { cwd: '/tmp', command: ['true'], keepOnFailure: true });
+    await new Promise((r) => setTimeout(r, 500));
+    expect(await tmux.hasSession('it-ok')).toBe(false);
+  });
+
   it('refuses WebSockets without a session or with a bad Origin', async () => {
     const tryOpen = (headers: Record<string, string>) =>
       new Promise<number>((resolve) => {

@@ -4,7 +4,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { ITheme } from '@xterm/xterm';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { WifiOff } from 'lucide-react';
+import { CircleStop, PlugZap, RotateCw, WifiOff } from 'lucide-react';
 import { wsUrl } from '../lib/live';
 import { useTheme } from '../lib/theme';
 import { cx } from './ui';
@@ -74,6 +74,7 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
     const wsRef = useRef<WebSocket | null>(null);
     const ctrlRef = useRef(false);
     const [link, setLink] = useState<TermLink>('connecting');
+    const [epoch, setEpoch] = useState(0); // bump to rebuild the terminal and reconnect
     const { resolved } = useTheme();
     const linkCb = useRef(onLinkChange);
     linkCb.current = onLinkChange;
@@ -283,7 +284,7 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
         term.dispose();
         termRef.current = null;
       };
-    }, [session]);
+    }, [session, epoch]);
 
     useEffect(() => {
       if (termRef.current) termRef.current.options.theme = resolved === 'light' ? LIGHT : DARK;
@@ -303,6 +304,32 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
               <span className="size-3 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden />
             )}
             {link === 'reconnecting' ? 'Reconnexion…' : 'Connexion…'}
+          </div>
+        )}
+        {(link === 'ended' || link === 'unavailable') && (
+          <div className="absolute inset-0 flex animate-fade-in items-center justify-center bg-term/80 p-6 backdrop-blur-[1px]">
+            <div role="status" className="max-w-xs text-center">
+              <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl border border-line bg-surface text-muted">
+                {link === 'ended' ? <CircleStop className="size-5" aria-hidden /> : <PlugZap className="size-5" aria-hidden />}
+              </div>
+              <p className="text-sm font-semibold text-fg">{link === 'ended' ? 'La session s’est terminée' : 'Terminal injoignable'}</p>
+              <p className="mt-1 text-[13px] text-muted">
+                {link === 'ended'
+                  ? 'Le programme qui tournait dans cette session s’est arrêté.'
+                  : 'La session n’existe peut-être plus, ou ta connexion a expiré.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setLink('connecting');
+                  setEpoch((e) => e + 1);
+                }}
+                className="mt-5 inline-flex h-10 items-center gap-2 rounded-md border border-line bg-surface-2 px-4 text-sm text-fg hover:border-line-strong"
+              >
+                <RotateCw className="size-4" aria-hidden />
+                Réessayer
+              </button>
+            </div>
           </div>
         )}
       </div>

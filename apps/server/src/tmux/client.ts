@@ -21,6 +21,8 @@ export interface NewSessionOptions {
   env?: Record<string, string>;
   /** tmux user options to set on the session (keys must start with @). */
   userOptions?: Record<string, string>;
+  /** Keep the pane (and its output) when the command fails, instead of closing the session. */
+  keepOnFailure?: boolean;
 }
 
 export interface AttachCommand {
@@ -126,7 +128,8 @@ export class RealTmuxClient implements TmuxClient {
       if (!s) continue;
       const isActive = active === '1';
       s.windows.push({ index: Number(index), name: wname ?? '', active: isActive, command: command ?? '', path: cwd ?? '' });
-      if (isActive && dead === '1') s.deadStatus = Number(deadStatus) || 0;
+      // Exit status is not always reported (older tmux): -1 means "ended, status unknown".
+      if (isActive && dead === '1') s.deadStatus = deadStatus ? Number(deadStatus) : -1;
     }
     return [...sessions.values()];
   }
@@ -146,15 +149,23 @@ export class RealTmuxClient implements TmuxClient {
   }
 
   async newSession(name: string, opts: NewSessionOptions): Promise<void> {
+    // With keepOnFailure, the pane starts on a placeholder so remain-on-exit is set before the real
+    // command runs (a command failing instantly would otherwise close the session first).
+    const deferred = !!opts.keepOnFailure && opts.command.length > 0;
     const args = ['new-session', '-d', '-s', name, '-x', '200', '-y', '50', '-c', opts.cwd];
     for (const [k, v] of Object.entries(opts.env ?? {})) args.push('-e', `${k}=${v}`);
-    if (opts.command.length > 0) args.push('--', ...opts.command);
+    if (deferred) args.push('--', 'sleep', '60');
+    else if (opts.command.length > 0) args.push('--', ...opts.command);
     await this.run(args);
     // A phone joining must not shrink the session on the desktop: size follows the latest active client.
     await this.run(['set-option', '-t', `=${name}:`, 'window-size', 'latest']);
     for (const [k, v] of Object.entries(opts.userOptions ?? {})) {
       if (!k.startsWith('@')) throw new TmuxError(`Invalid user option ${k}`);
       await this.run(['set-option', '-t', `=${name}:`, k, v]);
+    }
+    if (deferred) {
+      await this.run(['set-option', '-t', `=${name}:`, 'remain-on-exit', 'failed']);
+      await this.run(['respawn-pane', '-k', '-t', `=${name}:`, '-c', opts.cwd, '--', ...opts.command]);
     }
   }
 
