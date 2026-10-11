@@ -167,6 +167,14 @@ describe('request hardening', () => {
     }
   });
 
+  it('odd URL spellings never reach the API without a session', async () => {
+    for (const url of ['//api/sessions', '/api//sessions', '/api/sessions/', '/api/%73essions', '/API/sessions', '/api/health/../sessions', '/api/nope']) {
+      const r = await app.fastify.inject({ url });
+      expect(r.statusCode === 401 || r.statusCode === 404 || !r.body.includes('"sessions"'), url).toBe(true);
+      expect(r.body, url).not.toContain('"sessions":[');
+    }
+  });
+
   it('state-changing requests need an allowed Origin', async () => {
     const sid = await login();
     const none = await post('/api/sessions', { name: 'x', template: 'terminal' }, { kae_sid: sid }, null);

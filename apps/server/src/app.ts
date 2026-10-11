@@ -134,8 +134,9 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   // ---- Authentication guard for the API ----
   const PUBLIC = new Set(['/api/health', '/api/auth/me', '/api/auth/password', '/api/auth/second-factor']);
   fastify.addHook('preHandler', async (req, reply) => {
-    const url = req.url.split('?')[0]!;
-    if (!url.startsWith('/api/') || PUBLIC.has(url)) return;
+    // Decide on the route that actually matched, not on the raw URL text (immune to odd encodings).
+    const route = req.routeOptions.url ?? '';
+    if (!route.startsWith('/api/') || PUBLIC.has(route)) return;
     if (!sessions.validate(req.cookies[SESSION_COOKIE])) {
       return reply.code(401).send({ error: 'unauthenticated', message: 'Session expirée, reconnecte-toi.' });
     }
