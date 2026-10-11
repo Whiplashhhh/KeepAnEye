@@ -226,6 +226,16 @@ body {
   }
 }
 
+/* iOS zooms into any focused field under 16px: keep them at 16px on touch screens
+   (xterm's hidden helper textarea included). Unlayered, so it wins over utilities. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* Text fields show focus with their own border + ring: no extra outline. */
 input:focus-visible,
 select:focus-visible,
