@@ -2,6 +2,7 @@
   "name": "keep-an-eye",
   "private": true,
   "author": "Willem Vanbaelinghem <willem.vanbaelinghem@proton.me>",
+  "license": "MIT",
   "version": "0.1.0",
   "description": "Control tower for tmux and Claude Code sessions on a home server",
   "type": "module",

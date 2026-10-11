@@ -343,4 +343,4 @@ Architecture, modèle de données, API et messages WebSocket : [`docs/PLAN.md`](
 
 ---
 
-Keep An Eye est créé par **Willem Vanbaelinghem** — © 2026.
+Keep An Eye est créé par **Willem Vanbaelinghem** — © 2026. Sous licence [MIT](LICENSE).
