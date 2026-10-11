@@ -64,6 +64,7 @@ const config: Config = {
   claudeHomeDir: claudeHome,
   templatesFile: path.join(REPO_ROOT, 'config/templates.json'),
   tmuxBin: 'tmux',
+  tmuxRequireServer: false,
   tmuxSocket: socket,
   dockerBin: 'docker',
   hostLabel: mode === 'demo' ? 'homelab' : 'e2e-host',

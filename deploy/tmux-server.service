@@ -1,0 +1,17 @@
+# Serveur tmux permanent (utilisateur), pour l'installation Docker de Keep An Eye.
+# Le conteneur n'embarque qu'un client tmux : les sessions vivent ici, sur l'hôte, et survivent
+# aux redémarrages et mises à jour du conteneur. Tes propres « tmux » s'y rattachent aussi.
+
+[Unit]
+Description=Serveur tmux permanent (Keep An Eye)
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# exit-empty off : le serveur reste en vie même sans aucune session.
+ExecStart=/usr/bin/tmux start-server \; set-option -g exit-empty off
+# Arrêter ce service ne tue pas tmux ni tes sessions.
+KillMode=process
+
+[Install]
+WantedBy=default.target

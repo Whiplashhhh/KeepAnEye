@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { terminalClientMessageSchema } from '@kae/shared';
 import * as pty from 'node-pty';
@@ -18,7 +19,8 @@ export function bridgeTerminal(ws: WebSocket, tmux: TmuxClient, name: string, co
     name: 'xterm-256color',
     cols,
     rows,
-    cwd: homedir(),
+    // In Docker, $HOME is the host's home path and may not exist in the container.
+    cwd: existsSync(homedir()) ? homedir() : '/',
     env: { ...tmuxEnv(), TERM: 'xterm-256color', COLORTERM: 'truecolor', LANG: process.env.LANG || 'C.UTF-8' } as Record<
       string,
       string

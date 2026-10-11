@@ -33,6 +33,10 @@ const envSchema = z.object({
     .string()
     .regex(/^[a-zA-Z0-9_-]{1,40}$/)
     .optional(),
+  KAE_TMUX_REQUIRE_SERVER: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   KAE_DOCKER_BIN: z.string().default('docker'),
   KAE_HOST_LABEL: z.string().max(60).optional(),
   KAE_SHELL: z.string().optional(),
@@ -58,6 +62,8 @@ export interface Config {
   templatesFile: string;
   tmuxBin: string;
   tmuxSocket: string | undefined;
+  /** Never start a tmux server ourselves (Docker: sessions must live in the host's tmux server). */
+  tmuxRequireServer: boolean;
   dockerBin: string;
   /** Name shown in the host strip (defaults to the machine hostname). */
   hostLabel: string;
@@ -102,6 +108,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, envFile = env.K
     templatesFile: resolvePath(e.KAE_TEMPLATES_FILE),
     tmuxBin: e.KAE_TMUX_BIN,
     tmuxSocket: e.KAE_TMUX_SOCKET,
+    tmuxRequireServer: e.KAE_TMUX_REQUIRE_SERVER,
     dockerBin: e.KAE_DOCKER_BIN,
     hostLabel: e.KAE_HOST_LABEL ?? hostname(),
     shell: e.KAE_SHELL ?? env.SHELL ?? '/bin/bash',

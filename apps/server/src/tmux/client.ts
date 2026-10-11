@@ -67,11 +67,15 @@ const WINDOW_FORMAT = [
 const NO_SERVER = /no server running|error connecting to|no sessions/i;
 
 export class TmuxError extends Error {}
+/** No tmux server is running and we are not allowed to start one. */
+export class TmuxNoServerError extends TmuxError {}
 
 export class RealTmuxClient implements TmuxClient {
   constructor(
     private readonly bin = 'tmux',
     private readonly socket?: string,
+    /** When true, refuse to create a session if no server runs (it would start inside our container). */
+    private readonly requireServer = false,
   ) {}
 
   private baseArgs(): string[] {
@@ -151,6 +155,14 @@ export class RealTmuxClient implements TmuxClient {
   async newSession(name: string, opts: NewSessionOptions): Promise<void> {
     // With keepOnFailure, the pane starts on a placeholder so remain-on-exit is set before the real
     // command runs (a command failing instantly would otherwise close the session first).
+    if (this.requireServer) {
+      try {
+        await this.run(['show-options', '-gv', 'exit-empty']);
+      } catch (e) {
+        if (e instanceof TmuxError && NO_SERVER.test(e.message)) throw new TmuxNoServerError(e.message);
+        throw e;
+      }
+    }
     const deferred = !!opts.keepOnFailure && opts.command.length > 0;
     const args = ['new-session', '-d', '-s', name, '-x', '200', '-y', '50', '-c', opts.cwd];
     for (const [k, v] of Object.entries(opts.env ?? {})) args.push('-e', `${k}=${v}`);

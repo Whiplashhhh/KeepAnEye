@@ -32,6 +32,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     claudeHomeDir: path.join(claudeBoxDir, 'claude-home'),
     templatesFile: path.resolve(import.meta.dirname, '../../../config/templates.json'),
     tmuxBin: 'tmux',
+    tmuxRequireServer: false,
     tmuxSocket: undefined,
     dockerBin: 'docker',
     hostLabel: 'test-host',

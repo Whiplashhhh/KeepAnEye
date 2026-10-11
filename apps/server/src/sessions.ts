@@ -9,6 +9,7 @@ import { isValidProject } from './projects.js';
 import type { Template } from './templates.js';
 import { expandTemplate } from './templates.js';
 import type { TmuxClient, TmuxSession } from './tmux/client.js';
+import { TmuxNoServerError } from './tmux/client.js';
 
 export const PREVIEW_LINES = 6;
 const MAX_PREVIEW_LINE = 240;
@@ -18,6 +19,11 @@ export interface SessionServiceOptions {
   workspaceDir: string;
   claudeBoxDir: string;
   claudeHomeDir: string;
+  /**
+   * Check the working directory exists before creating a session. Off when the tmux server runs
+   * elsewhere (Docker): paths are resolved on the host, not in our filesystem.
+   */
+  checkCwd?: boolean;
 }
 
 export class SessionService {
@@ -106,17 +112,28 @@ export class SessionService {
     } catch (e) {
       throw new HttpError(400, 'invalid_flags', (e as Error).message);
     }
-    const cwd = existsSync(expanded.cwd) ? expanded.cwd : homedir();
+    const cwd = this.opts.checkCwd === false || existsSync(expanded.cwd) ? expanded.cwd : homedir();
     this.tracker.reset(input.name);
     const userOptions: Record<string, string> = { '@kae_kind': template.kind, '@kae_template': template.id };
     if (project) userOptions['@kae_project'] = project;
-    await this.tmux.newSession(input.name, {
-      cwd,
-      command: expanded.command,
-      env: { KEEP_AN_EYE_SESSION: input.name },
-      userOptions,
-      keepOnFailure: template.keepOnFailure,
-    });
+    try {
+      await this.tmux.newSession(input.name, {
+        cwd,
+        command: expanded.command,
+        env: { KEEP_AN_EYE_SESSION: input.name },
+        userOptions,
+        keepOnFailure: template.keepOnFailure,
+      });
+    } catch (e) {
+      if (e instanceof TmuxNoServerError) {
+        throw new HttpError(
+          503,
+          'tmux_not_running',
+          'Le serveur tmux de l’hôte ne tourne pas. Lance « systemctl --user start tmux-server » sur le serveur.',
+        );
+      }
+      throw e;
+    }
     return { name: input.name };
   }
 

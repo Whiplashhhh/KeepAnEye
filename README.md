@@ -41,7 +41,68 @@ L'appli donne un shell sur le serveur : elle est verrouillée même derrière Ta
 - Tout ce qui vient de claude-box (événements, transcripts) est traité comme **non fiable** : taille limitée, parsing défensif, chemins vérifiés, rendu échappé.
 - **Journal d'audit** consultable dans Réglages → Journal d'audit.
 
-## Installation sur Ubuntu
+## Installation avec Docker (recommandé)
+
+Plus besoin d'installer Node ni de compiler quoi que ce soit sur l'hôte : tout est dans l'image.
+
+**Comment ça s'articule.** Le conteneur n'embarque qu'un *client* tmux. Il se connecte au serveur tmux de l'hôte par son socket (`/tmp/tmux-<uid>`). Tes terminaux et tes sessions Claude tournent donc sur l'hôte, comme avant, et survivent à l'arrêt ou à la mise à jour du conteneur. Le conteneur :
+
+- utilise le **réseau de l'hôte** et écoute sur `127.0.0.1:7777` (rien n'est publié ailleurs) ;
+- tourne avec **ton UID** (sinon tmux refuse la connexion) ;
+- voit `~/claude-box` **au même chemin** que sur l'hôte ;
+- accède au socket Docker pour afficher l'état de claude-box.
+
+### 1. Prérequis
+
+- Docker Engine avec le plugin compose. Ton utilisateur doit être dans le groupe `docker`.
+- tmux sur l'hôte : `sudo apt-get install -y tmux git`.
+- Tailscale.
+
+### 2. Récupérer et préparer
+
+```bash
+git clone https://github.com/Whiplashhhh/KeepAnEye.git ~/keep-an-eye
+cd ~/keep-an-eye
+./scripts/docker-init.sh
+sudo loginctl enable-linger "$USER"     # pour que tmux et l'appli tournent sans session ouverte
+nano .env                               # KAE_ALLOWED_ORIGINS=https://<machine>.<tailnet>.ts.net
+```
+
+`docker-init.sh` fait trois choses :
+
+- il crée `.env` et y écrit ton UID/GID, ton dossier personnel, le GID du groupe `docker` et ton fuseau horaire ;
+- il crée `data/` ;
+- il active `tmux-server.service`, un serveur tmux permanent sur l'hôte (option `exit-empty off`). Le conteneur ne démarre jamais tmux lui-même : sinon les sessions vivraient dans le conteneur et mourraient avec lui. Tes `tmux attach` habituels se rattachent au même serveur.
+
+### 3. Démarrer et créer le compte
+
+```bash
+docker compose up -d --build
+docker compose exec keep-an-eye npm run admin:init
+docker compose ps                        # état « healthy »
+curl -s http://127.0.0.1:7777/api/health # {"ok":true}
+```
+
+`restart: unless-stopped` relance l'appli au démarrage de la machine.
+
+### 4. Tailscale et PWA
+
+Comme sans Docker : voir les étapes [6](#6-exposer-sur-le-tailnet-avec-tailscale-serve) et [7](#7-installer-la-pwa) ci-dessous. `tailscale serve` pointe toujours vers `http://127.0.0.1:7777`.
+
+### Commandes utiles
+
+| Action | Commande |
+|---|---|
+| Journaux | `docker compose logs -f` |
+| Mettre à jour | `git pull && docker compose up -d --build` |
+| Redémarrer | `docker compose restart` (les sessions tmux ne bougent pas) |
+| Réinitialiser la 2FA | `docker compose exec keep-an-eye npm run admin:reset-2fa` |
+| Nouveau mot de passe | `docker compose exec keep-an-eye npm run admin:reset-password` |
+| Modèles personnalisés | décommente la ligne `config/templates.json` dans `compose.yml` |
+
+La base est dans `./data` : la section [Sauvegarde](#sauvegarde-de-la-base) s'applique telle quelle (préfixe les commandes `node` par `docker compose exec keep-an-eye`, ou arrête le conteneur et copie `data/keep-an-eye.db`).
+
+## Installation sans Docker (Ubuntu)
 
 Les commandes ci-dessous supposent que l'appli vit dans `~/keep-an-eye` et que tu es connecté avec ton utilisateur habituel (celui qui lance tmux et Docker).
 
@@ -253,8 +314,12 @@ Pour restaurer : arrête le service, remplace `data/keep-an-eye.db` par la sauve
 | Timeline vide | Le bind mount `./claude-home:/home/claude` est nécessaire, et ton utilisateur doit pouvoir lire `~/claude-box/claude-home/.claude/projects`. |
 | claude-box affiché en gris | `docker compose ps` doit fonctionner sans sudo pour ton utilisateur (groupe `docker`), et `KAE_CLAUDE_BOX_DIR` pointer vers le dossier du `compose.yml`. |
 | Pas de notifications | Appli installée (obligatoire sur iOS), notifications autorisées pour le site, « Activer » cliqué sur cet appareil, plage « ne pas déranger » désactivée. Bouton **Envoyer** pour tester. |
-| Page blanche après une mise à jour | `npm run build` puis redémarre le service (les fichiers statiques sont indexés au démarrage). |
-| Journaux | `journalctl --user -u keep-an-eye -f` |
+| Page blanche après une mise à jour | `npm run build` puis redémarre le service (les fichiers statiques sont indexés au démarrage). Avec Docker, `docker compose up -d --build` s'en charge. |
+| Journaux | `journalctl --user -u keep-an-eye -f` (Docker : `docker compose logs -f`) |
+| Docker : le conteneur ne démarre pas, « bind source path does not exist » | Le socket tmux `/tmp/tmux-<uid>` ou `~/claude-box` est absent. Lance `systemctl --user start tmux-server` (ou `./scripts/docker-init.sh`), puis `docker compose up -d`. |
+| Docker : « Le serveur tmux de l'hôte ne tourne pas » | `systemctl --user enable --now tmux-server` et `sudo loginctl enable-linger $USER`. |
+| Docker : « protocol version mismatch » dans les journaux | Le tmux de l'hôte est trop ancien ou trop récent par rapport à celui de l'image (Debian 12, tmux 3.3). Tout tmux 3.x convient. |
+| Docker : claude-box en gris | `DOCKER_GID` dans `.env` doit être le GID du groupe `docker` (`getent group docker`), puis `docker compose up -d`. |
 
 ## Développement
 

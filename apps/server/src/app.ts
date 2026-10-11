@@ -100,6 +100,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     workspaceDir: config.workspaceDir,
     claudeBoxDir: config.claudeBoxDir,
     claudeHomeDir: config.claudeHomeDir,
+    checkCwd: !config.tmuxRequireServer,
   });
   const hostStats = new HostStats(deps.containerProbe, undefined, config.hostLabel);
   const hub = new LiveHub(sessionService, hostStats);

@@ -17,7 +17,7 @@ async function main(): Promise<void> {
   const app = await buildApp({
     config,
     db,
-    tmux: new RealTmuxClient(config.tmuxBin, config.tmuxSocket),
+    tmux: new RealTmuxClient(config.tmuxBin, config.tmuxSocket, config.tmuxRequireServer),
     containerProbe: new DockerComposeProbe(config.dockerBin, config.claudeBoxDir),
   });
   if (!isAdminReady(db)) {

@@ -1,0 +1,42 @@
+# Keep An Eye avec Docker. Préparation : ./scripts/docker-init.sh (remplit .env), puis :
+#   docker compose up -d --build
+#   docker compose exec keep-an-eye npm run admin:init
+name: keep-an-eye
+
+services:
+  keep-an-eye:
+    build: .
+    image: keep-an-eye:latest
+    restart: unless-stopped
+    # Réseau de l'hôte : l'appli écoute sur le 127.0.0.1 de l'HÔTE, comme sans Docker.
+    # Rien n'est publié ailleurs ; « tailscale serve » pointe toujours vers http://127.0.0.1:7777.
+    network_mode: host
+    # Même UID que toi : indispensable pour parler à ton serveur tmux.
+    user: "${HOST_UID:?lance ./scripts/docker-init.sh}:${HOST_GID:?lance ./scripts/docker-init.sh}"
+    group_add:
+      - "${DOCKER_GID:?lance ./scripts/docker-init.sh}"
+    env_file: .env
+    environment:
+      HOME: ${HOST_HOME}
+      KAE_DATA_DIR: /app/data
+      KAE_CLAUDE_BOX_DIR: ${HOST_HOME}/claude-box
+      KAE_TMUX_REQUIRE_SERVER: "true"
+    volumes:
+      - ./data:/app/data
+      # Socket du serveur tmux de l'hôte. Jamais créé par Docker : s'il manque, le conteneur ne démarre
+      # pas (un dossier créé par Docker appartiendrait à root et casserait tmux).
+      - type: bind
+        source: /tmp/tmux-${HOST_UID}
+        target: /tmp/tmux-${HOST_UID}
+        bind:
+          create_host_path: false
+      # claude-box au MÊME chemin que sur l'hôte : tmux (sur l'hôte) et l'appli voient les mêmes chemins.
+      - type: bind
+        source: ${HOST_HOME}/claude-box
+        target: ${HOST_HOME}/claude-box
+        bind:
+          create_host_path: false
+      # État de claude-box (docker compose ps).
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Modèles de session personnalisés (décommente pour utiliser ton propre fichier) :
+      # - ./config/templates.json:/app/config/templates.json:ro

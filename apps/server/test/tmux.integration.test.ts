@@ -6,7 +6,7 @@ import { buildApp } from '../src/app.js';
 import { setAdmin } from '../src/auth/admin.js';
 import { hashPassword } from '../src/auth/password.js';
 import { generateTotpSecret, totpAt } from '../src/auth/totp.js';
-import { RealTmuxClient } from '../src/tmux/client.js';
+import { RealTmuxClient, TmuxNoServerError } from '../src/tmux/client.js';
 import { memDb, ORIGIN, testConfig } from './helpers.js';
 
 function hasTmux(): boolean {
@@ -59,6 +59,20 @@ describe.skipIf(!hasTmux())('real tmux', () => {
 
   it('returns an empty list when no tmux server runs', async () => {
     expect(await tmux.listSessions()).toEqual([]);
+  });
+
+  it('in Docker mode, never starts a tmux server of its own', async () => {
+    const guarded = new RealTmuxClient('tmux', `${SOCKET}-guard`, true);
+    await expect(guarded.newSession('x', { cwd: '/tmp', command: [] })).rejects.toBeInstanceOf(TmuxNoServerError);
+    expect(await guarded.listSessions()).toEqual([]);
+    // Once a server runs (started on the host), sessions are created normally.
+    execFileSync('tmux', ['-L', `${SOCKET}-guard`, 'start-server', ';', 'set-option', '-g', 'exit-empty', 'off']);
+    try {
+      await guarded.newSession('x', { cwd: '/tmp', command: [] });
+      expect(await guarded.hasSession('x')).toBe(true);
+    } finally {
+      execFileSync('tmux', ['-L', `${SOCKET}-guard`, 'kill-server']);
+    }
   });
 
   it('creates a session with metadata, captures its output and kills it', async () => {

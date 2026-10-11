@@ -58,3 +58,53 @@ jobs:
             playwright-report
             test-results
           retention-days: 7
+
+  docker:
+    name: Docker image (build + smoke test on the host's tmux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tmux and start a persistent host server
+        run: |
+          sudo apt-get update && sudo apt-get install -y tmux
+          tmux start-server \; set-option -g exit-empty off
+          ls -ld /tmp/tmux-$(id -u)
+      - name: Prepare host folders and .env (what scripts/docker-init.sh does)
+        run: |
+          mkdir -p ~/claude-box/workspace/demo ~/claude-box/events data
+          cat > .env <<ENV
+          HOST_UID=$(id -u)
+          HOST_GID=$(id -g)
+          HOST_HOME=$HOME
+          DOCKER_GID=$(getent group docker | cut -d: -f3)
+          TZ=Europe/Paris
+          KAE_ALLOWED_ORIGINS=http://127.0.0.1:7777
+          KAE_HOST_LABEL=ci-runner
+          ENV
+          docker compose config -q
+      - run: docker compose build
+      - name: Docker CLI and compose plugin are usable inside the image
+        run: docker compose run --rm --no-deps --entrypoint docker keep-an-eye compose version
+      - name: Start and wait for the health check
+        run: |
+          docker compose up -d
+          for i in $(seq 1 30); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' keep-an-eye-keep-an-eye-1)" = healthy ] && break
+            sleep 2
+          done
+          docker compose ps
+          curl -fsS http://127.0.0.1:7777/api/health
+          curl -fsS http://127.0.0.1:7777/api/auth/me | grep -q uninitialized
+      - name: Sessions created from the container live in the host's tmux server
+        run: |
+          docker compose exec -T keep-an-eye tmux new-session -d -s from-container -c "$HOME" -- sleep 300
+          tmux has-session -t =from-container
+          docker compose restart keep-an-eye
+          sleep 3
+          tmux has-session -t =from-container   # survives a container restart
+          docker compose exec -T keep-an-eye tmux list-sessions | grep -q from-container
+      - name: Status of claude-box is readable (docker socket + group)
+        run: docker compose exec -T keep-an-eye docker ps --format '{{.Names}}' | grep -q keep-an-eye
+      - name: Logs
+        if: always()
+        run: docker compose logs --no-color

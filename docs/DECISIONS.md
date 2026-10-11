@@ -36,3 +36,10 @@ Une ligne par décision : décision — raison.
 - Captures d'écran sur un vrai tmux (socket dédié) avec des contenus et des événements de démonstration réalistes, `KAE_HOST_LABEL=homelab` — ce qu'on voit est ce que l'appli affiche réellement.
 - Les fichiers statiques sont indexés au démarrage (`@fastify/static`, `wildcard: false`) — une route par fichier, le reste part vers l'app ; il faut redémarrer après un build (documenté).
 - Hôte affiché via `KAE_HOST_LABEL` (défaut : hostname) — le hostname d'un conteneur ou d'une VM n'est pas toujours parlant.
+- Docker : le conteneur n'embarque qu'un client tmux relié au socket de l'hôte — les sessions (shells, Claude) tournent sur l'hôte et survivent au conteneur ; un terminal « dans le conteneur » serait inutile.
+- Docker : `network_mode: host` + écoute sur 127.0.0.1 — même garantie « loopback uniquement » que sans Docker, `tailscale serve` inchangé, et la vérification au démarrage reste valable.
+- Docker : `KAE_TMUX_REQUIRE_SERVER=true` + `tmux-server.service` (`exit-empty off`) sur l'hôte — le conteneur ne démarre jamais de serveur tmux lui-même, sinon les sessions vivraient (et mourraient) dans le conteneur.
+- Docker : montages du socket tmux et de `~/claude-box` en `create_host_path: false` — un dossier créé par Docker appartiendrait à root et casserait tmux ; mieux vaut refuser de démarrer avec un message clair.
+- Docker : `~/claude-box` monté au même chemin que sur l'hôte et `HOME` = dossier de l'hôte — les chemins passés à tmux (qui tourne sur l'hôte) sont identiques des deux côtés.
+- Docker : CLI Docker et plugin compose copiés depuis l'image officielle `docker:27-cli` (binaires statiques) — plus récents que les paquets Debian ; le socket Docker monté ne sert qu'à `docker compose ps` (la commande Claude est lancée par le tmux de l'hôte).
+- Docker : `TZ` de l'hôte écrit dans `.env` — la plage « ne pas déranger » suit l'heure locale, pas UTC.
