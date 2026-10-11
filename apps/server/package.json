@@ -1,0 +1,32 @@
+{
+  "name": "@kae/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.0",
+    "@fastify/static": "^10.1.6",
+    "@kae/shared": "*",
+    "@node-rs/argon2": "^2.0.2",
+    "better-sqlite3": "^12.4.0",
+    "fastify": "^5.6.0",
+    "node-pty": "^1.0.0",
+    "qrcode": "^1.5.4",
+    "web-push": "^3.6.7",
+    "ws": "^8.18.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/qrcode": "^1.5.5",
+    "@types/web-push": "^3.6.4",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.0"
+  }
+}

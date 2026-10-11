@@ -1,0 +1,39 @@
+{
+  "name": "keep-an-eye",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Control tower for tmux and Claude Code sessions on a home server",
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "apps/server",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @kae/server & npm run dev -w @kae/web",
+    "build": "npm run build -w @kae/web && npm run build -w @kae/server",
+    "start": "node apps/server/dist/index.js",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p e2e/tsconfig.json",
+    "test": "vitest run",
+    "e2e": "playwright test --project=e2e",
+    "screenshots": "playwright test --project=screenshots",
+    "admin:init": "node apps/server/dist/cli.js init",
+    "admin:reset-2fa": "node apps/server/dist/cli.js reset-2fa",
+    "admin:reset-password": "node apps/server/dist/cli.js reset-password"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@playwright/test": "1.64.0",
+    "@types/node": "^22.18.0",
+    "eslint": "^9.35.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.3.0",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.44.0",
+    "vitest": "^5.0.3"
+  }
+}

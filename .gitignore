@@ -1,0 +1,11 @@
+*.db
+*.db-*
+*.tsbuildinfo
+.e2e/
+.env
+coverage/
+data/
+dist/
+node_modules/
+playwright-report/
+test-results/
