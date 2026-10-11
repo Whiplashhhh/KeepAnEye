@@ -156,14 +156,6 @@ body,
   height: 100%;
 }
 
-/* An installed iOS PWA lays out a document that cannot scroll above the bottom safe area,
-   which lifts the fixed bottom nav off the screen edge. One extra pixel keeps it scrollable. */
-@media (max-width: 1023.98px) {
-  #root {
-    min-height: calc(100% + 1px);
-  }
-}
-
 body {
   margin: 0;
   background: var(--bg);
