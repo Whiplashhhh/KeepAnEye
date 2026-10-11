@@ -2,6 +2,8 @@
 
 Tour de contrôle de mes sessions **tmux** et **Claude Code** sur mon serveur maison : une PWA calme et précise qui dit en une seconde ce qui demande mon attention.
 
+Créé par **Willem Vanbaelinghem**.
+
 <p align="center">
   <img src="docs/screenshots/mobile-dark-03-dashboard.png" width="24%" alt="Tableau de bord sur téléphone, thème sombre" />
   <img src="docs/screenshots/mobile-dark-04-terminal.png" width="24%" alt="Terminal plein écran avec barre de touches" />
@@ -338,3 +340,7 @@ npm run screenshots                  # captures mobile + bureau, sombre + clair 
 - `packages/shared` : schémas et types partagés.
 
 Architecture, modèle de données, API et messages WebSocket : [`docs/PLAN.md`](docs/PLAN.md). Choix faits en route : [`docs/DECISIONS.md`](docs/DECISIONS.md).
+
+---
+
+Keep An Eye est créé par **Willem Vanbaelinghem** — © 2026.

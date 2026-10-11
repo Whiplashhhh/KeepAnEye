@@ -107,7 +107,8 @@ async function init(db: DB, p: Prompt, force: boolean): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  console.log(bold('Keep An Eye — initialisation du compte\n'));
+  console.log(bold('Keep An Eye — initialisation du compte'));
+  console.log(dim('Créé par Willem Vanbaelinghem\n'));
   const password = await askNewPassword(p);
   const hash = await hashPassword(password);
   const { secret, step } = await enrollTotp(p);

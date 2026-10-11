@@ -248,7 +248,7 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
           />
         </Row>
       </Section>
-      <p className="text-center text-xs text-faint">Keep An Eye · écoute sur 127.0.0.1, servi par Tailscale</p>
+      <p className="text-center text-xs text-faint">Keep An Eye · créé par Willem Vanbaelinghem · écoute sur 127.0.0.1, servi par Tailscale</p>
     </div>
   );
 }

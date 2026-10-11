@@ -1,5 +1,7 @@
 # Keep An Eye — plan
 
+_Créé par Willem Vanbaelinghem._
+
 Tour de contrôle web (PWA) pour les sessions tmux et Claude Code d'un serveur maison.
 
 ## Architecture

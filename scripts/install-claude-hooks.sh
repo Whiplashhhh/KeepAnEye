@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Keep An Eye — créé par Willem Vanbaelinghem.
 # Installe les hooks Keep An Eye dans Claude Code, à lancer DANS le conteneur claude-box :
 #
 #   docker compose -f ~/claude-box/compose.yml exec -u claude claude bash /workspace/<projet>/…/install-claude-hooks.sh

@@ -1,5 +1,7 @@
 # Décisions
 
+_Keep An Eye, créé par Willem Vanbaelinghem._
+
 Une ligne par décision : décision — raison.
 
 - Versions : TypeScript 5.9, Vite 7, Vitest 5, ESLint 9, Tailwind 4, React 19, Fastify 5 (@fastify/static 10, sans vulnérabilité connue), Playwright 1.64 — versions stables éprouvées ; Playwright aligné sur le Chromium préinstallé.

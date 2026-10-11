@@ -1,4 +1,4 @@
-# Service systemd *utilisateur* pour Keep An Eye.
+# Service systemd *utilisateur* pour Keep An Eye — créé par Willem Vanbaelinghem.
 # Installation : voir README (section « Service systemd »).
 #   mkdir -p ~/.config/systemd/user && cp deploy/keep-an-eye.service ~/.config/systemd/user/
 #   systemctl --user daemon-reload && systemctl --user enable --now keep-an-eye

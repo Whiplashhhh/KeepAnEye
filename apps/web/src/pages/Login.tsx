@@ -262,6 +262,7 @@ export function LoginPage({ initialStage, onDone }: { initialStage: Stage; onDon
           )}
         </div>
         <p className="mt-6 text-center text-xs text-faint">Accès réservé · connexion journalisée</p>
+        <p className="mt-2 text-center text-xs text-faint">Créé par Willem Vanbaelinghem</p>
       </div>
     </main>
   );
