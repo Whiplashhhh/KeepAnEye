@@ -35,7 +35,8 @@ import { parseCookieHeader } from './http/cookies.js';
 import { HttpError } from './http/errors.js';
 import { clientIp } from './http/ip.js';
 import { registerSecurityHeaders } from './http/security.js';
-import { listProjects } from './projects.js';
+import type { RepoCloner } from './projects.js';
+import { ClaudeBoxCloner, listProjects } from './projects.js';
 import { handleStatusChange } from './push/notifier.js';
 import type { PushSender } from './push/service.js';
 import { PushService } from './push/service.js';
@@ -58,6 +59,7 @@ export interface AppDeps {
   /** Start the events watcher and periodic maintenance (off in unit tests). */
   background?: boolean;
   templates?: Template[];
+  cloner?: RepoCloner;
   logger?: boolean;
 }
 
@@ -100,6 +102,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     workspaceDir: config.workspaceDir,
     claudeBoxDir: config.claudeBoxDir,
     claudeHomeDir: config.claudeHomeDir,
+    cloner: deps.cloner ?? new ClaudeBoxCloner(config.dockerBin, config.claudeBoxDir),
     checkCwd: !config.tmuxRequireServer,
   });
   const hostStats = new HostStats(deps.containerProbe, undefined, config.hostLabel);
@@ -243,6 +246,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
       name: input.name,
       template: input.template,
       project: input.project ?? null,
+      repo: input.repo ?? null,
       flags: input.flags,
     });
     await hub.refreshSessions();

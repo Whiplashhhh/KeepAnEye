@@ -22,6 +22,7 @@ Toutes les captures (mobile et bureau, sombre et clair) sont dans [`docs/screens
 - **Terminal en direct** dans le navigateur (xterm.js ↔ WebSocket ↔ `tmux attach` dans un pty). Plusieurs appareils peuvent regarder la même session ; fermer l'onglet détache sans tuer la session. Reconnexion automatique, liens cliquables, copier-coller.
 - **Mobile d'abord** : terminal plein écran qui se redimensionne au-dessus du clavier, barre de touches `Esc` `Tab` `Ctrl` `^C` `↑` `↓` `⏎` `←` `→` et coller.
 - **Créer / fermer** des sessions à partir de modèles (Terminal, Claude dans claude-box, et les tiens).
+- **Cloner un repo** au moment de lancer Claude : tape `propriétaire/repo` (ou colle l'URL GitHub) au lieu de choisir un projet ; l'appli lance `gh repo clone` dans claude-box (utilisateur `claude`, donc avec son authentification `gh`), le dossier arrive dans `~/claude-box/workspace` et rejoint la liste des projets. Si le dossier existe déjà, il est réutilisé tel quel.
 - **Suivi de Claude Code** par des hooks qui écrivent dans un fichier (claude-box ne peut pas joindre l'appli), et **timeline** lisible du transcript : messages, outils, fichiers modifiés.
 - **Notifications Web Push** quand une session t'attend, a terminé ou est en erreur ; toucher la notification ouvre la session. Réglages par type et plage « ne pas déranger ».
 - **Bureau** : deux panneaux, palette de commandes `Ctrl K`, raccourcis (`?`).

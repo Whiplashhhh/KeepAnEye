@@ -1,10 +1,26 @@
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { createSessionSchema, SESSION_NAME_RE } from '@kae/shared';
+import { createSessionSchema, parseRepoRef, SESSION_NAME_RE } from '@kae/shared';
 import { describe, expect, it } from 'vitest';
 import { isValidProject, listProjects } from '../src/projects.js';
 import { expandTemplate, loadTemplates } from '../src/templates.js';
 import { tempDir, testConfig } from './helpers.js';
+
+describe('repo references', () => {
+  it('accepts owner/repo, GitHub URLs and SSH remotes', () => {
+    const want = { repo: 'Whiplashhhh/EDT', project: 'EDT' };
+    for (const r of ['Whiplashhhh/EDT', ' Whiplashhhh/EDT ', 'https://github.com/Whiplashhhh/EDT', 'github.com/Whiplashhhh/EDT/', 'https://github.com/Whiplashhhh/EDT.git', 'git@github.com:Whiplashhhh/EDT.git']) {
+      expect(parseRepoRef(r), r).toEqual(want);
+    }
+    expect(parseRepoRef('me/my.repo_2')).toEqual({ repo: 'me/my.repo_2', project: 'my.repo_2' });
+  });
+
+  it('rejects anything that could escape the workspace or reach a shell', () => {
+    for (const r of ['', 'EDT', 'a/b/c', '../etc', 'owner/..', 'owner/.hidden', 'a/b c', 'x/y;reboot', '-x/y', 'https://evil.com/a/b', '$(id)/x']) {
+      expect(parseRepoRef(r), r).toBeNull();
+    }
+  });
+});
 
 describe('session names', () => {
   it('accepts the documented pattern', () => {

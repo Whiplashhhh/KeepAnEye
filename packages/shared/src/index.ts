@@ -7,6 +7,24 @@ export const sessionNameSchema = z.string().regex(SESSION_NAME_RE, 'Nom de sessi
 /** Project folder names inside ~/claude-box/workspace. */
 export const PROJECT_NAME_RE = /^[a-zA-Z0-9._-]{1,80}$/;
 
+/**
+ * GitHub repo to clone into the workspace: "owner/repo", also accepting a github.com URL or SSH remote.
+ * The project folder is the repo name. Returns null when the input isn't a usable repo reference.
+ */
+export function parseRepoRef(input: string): { repo: string; project: string } | null {
+  const s = input
+    .trim()
+    .replace(/^(?:https?:\/\/)?(?:www\.)?github\.com[/:]/i, '')
+    .replace(/^git@github\.com:/i, '')
+    .replace(/\/+$/, '')
+    .replace(/\.git$/i, '');
+  const m = /^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,38}))\/([a-zA-Z0-9._-]{1,80})$/.exec(s);
+  if (!m) return null;
+  const project = m[2]!;
+  if (project === '.' || project === '..' || project.startsWith('.')) return null;
+  return { repo: `${m[1]}/${project}`, project };
+}
+
 export const CLAUDE_STATUSES = ['waiting', 'working', 'done', 'error', 'idle'] as const;
 export type ClaudeStatus = (typeof CLAUDE_STATUSES)[number];
 
@@ -148,6 +166,8 @@ export const createSessionSchema = z.object({
   name: sessionNameSchema,
   template: z.string().min(1).max(40),
   project: z.string().max(80).optional(),
+  /** GitHub repo ("owner/repo") to clone into the workspace first; replaces `project`. */
+  repo: z.string().max(200).optional(),
   flags: z.array(z.string().max(40)).max(10).default([]),
 });
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;

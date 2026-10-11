@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import type { ClaudeInfo, CreateSessionInput, SessionInfo, SessionKind } from '@kae/shared';
-import { SESSION_NAME_RE, sortSessions } from '@kae/shared';
+import { parseRepoRef, SESSION_NAME_RE, sortSessions } from '@kae/shared';
 import type { ClaudeTracker } from './claude/tracker.js';
 import { resolveTranscriptPath } from './claude/transcript.js';
 import { HttpError } from './http/errors.js';
-import { isValidProject } from './projects.js';
+import type { RepoCloner } from './projects.js';
+import { isValidProject, listProjects } from './projects.js';
 import type { Template } from './templates.js';
 import { expandTemplate } from './templates.js';
 import type { TmuxClient, TmuxSession } from './tmux/client.js';
@@ -19,6 +20,8 @@ export interface SessionServiceOptions {
   workspaceDir: string;
   claudeBoxDir: string;
   claudeHomeDir: string;
+  /** Clones a GitHub repo into the workspace when a session asks for one. */
+  cloner?: RepoCloner;
   /**
    * Check the working directory exists before creating a session. Off when the tmux server runs
    * elsewhere (Docker): paths are resolved on the host, not in our filesystem.
@@ -96,7 +99,9 @@ export class SessionService {
       throw new HttpError(409, 'session_exists', `Une session « ${input.name} » existe déjà. Choisis un autre nom.`);
     }
     let project: string | null = null;
-    if (template.requiresProject) {
+    if (template.requiresProject && input.repo) {
+      project = await this.cloneProject(input.repo);
+    } else if (template.requiresProject) {
       if (!(await isValidProject(this.opts.workspaceDir, input.project))) {
         throw new HttpError(400, 'invalid_project', 'Ce projet n’existe pas dans ~/claude-box/workspace.');
       }
@@ -135,6 +140,25 @@ export class SessionService {
       throw e;
     }
     return { name: input.name };
+  }
+
+  /** Clones the repo into the workspace (unless its folder is already there) and returns the project name. */
+  private async cloneProject(input: string): Promise<string> {
+    const ref = parseRepoRef(input);
+    if (!ref) {
+      throw new HttpError(400, 'invalid_repo', 'Repo invalide : écris-le sous la forme « propriétaire/repo ».');
+    }
+    if ((await listProjects(this.opts.workspaceDir)).includes(ref.project)) return ref.project;
+    if (!this.opts.cloner) throw new HttpError(501, 'clone_unavailable', 'Le clonage de repo n’est pas disponible ici.');
+    try {
+      await this.opts.cloner.clone(ref.repo, ref.project);
+    } catch (e) {
+      throw new HttpError(502, 'clone_failed', `Impossible de cloner ${ref.repo} : ${(e as Error).message}`);
+    }
+    if (!(await isValidProject(this.opts.workspaceDir, ref.project))) {
+      throw new HttpError(502, 'clone_failed', `${ref.repo} a été cloné mais le dossier ${ref.project} est introuvable dans le workspace.`);
+    }
+    return ref.project;
   }
 
   async close(name: string): Promise<void> {

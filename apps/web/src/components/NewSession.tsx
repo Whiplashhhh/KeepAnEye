@@ -1,6 +1,6 @@
 import type { TemplateInfo } from '@kae/shared';
-import { SESSION_NAME_RE } from '@kae/shared';
-import { Bot, FolderGit2, ShieldAlert, SquareTerminal } from 'lucide-react';
+import { parseRepoRef, SESSION_NAME_RE } from '@kae/shared';
+import { Bot, FolderGit2, Github, ShieldAlert, SquareTerminal } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
@@ -22,6 +22,8 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
   const [projects, setProjects] = useState<string[] | null>(null);
   const [templateId, setTemplateId] = useState('terminal');
   const [project, setProject] = useState('');
+  const [source, setSource] = useState<'existing' | 'clone'>('existing');
+  const [repo, setRepo] = useState('');
   const [flags, setFlags] = useState<string[]>([]);
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
@@ -41,20 +43,27 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
         setTemplates(t.templates);
         setProjects(p.projects);
         setProject((cur) => (cur && p.projects.includes(cur) ? cur : (p.projects[0] ?? '')));
+        if (p.projects.length === 0) setSource('clone');
       })
       .catch((e: Error) => setError(e.message));
   }, [open]);
 
+  const repoRef = parseRepoRef(repo);
+  const cloning = !!template?.requiresProject && source === 'clone';
+  const chosenProject = cloning ? (repoRef?.project ?? '') : project;
+  const repoExists = !!repoRef && !!projects?.includes(repoRef.project);
+
   // Prefill a name that follows the choices until the user edits it.
   useEffect(() => {
     if (nameTouched) return;
-    const base = template?.requiresProject && project ? slug(project) : template?.kind === 'claude' ? 'claude' : 'shell';
+    const base =
+      template?.requiresProject && chosenProject ? slug(chosenProject) : template?.kind === 'claude' ? 'claude' : 'shell';
     setName(existing.includes(base) || base === 'shell' ? suggestName(existing, base) : base);
-  }, [template, project, existing, nameTouched]);
+  }, [template, chosenProject, existing, nameTouched]);
 
   const nameValid = SESSION_NAME_RE.test(name);
   const nameTaken = existing.includes(name);
-  const canSubmit = nameValid && !nameTaken && !!template && (!template.requiresProject || !!project) && !busy;
+  const canSubmit = nameValid && !nameTaken && !!template && (!template.requiresProject || !!chosenProject) && !busy;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -64,8 +73,15 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
     try {
       await api('/api/sessions', {
         method: 'POST',
-        body: { name, template: template.id, project: template.requiresProject ? project : undefined, flags },
+        body: {
+          name,
+          template: template.id,
+          project: template.requiresProject && !cloning ? project : undefined,
+          repo: cloning ? repoRef?.repo : undefined,
+          flags,
+        },
       });
+      if (cloning) void api<{ projects: string[] }>('/api/projects').then((p) => setProjects(p.projects)).catch(() => undefined);
       await refresh().catch(() => undefined);
       onOpenChange(false);
       toast({ kind: 'success', title: `Session « ${name} » créée` });
@@ -132,18 +148,79 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
 
         {template?.requiresProject && (
           <div>
-            <label htmlFor="ns-project" className="mb-2 block text-[13px] font-medium text-muted">
-              Projet <span className="font-mono text-faint">~/claude-box/workspace</span>
-            </label>
-            {projects && projects.length === 0 ? (
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span id="ns-project-label" className="text-[13px] font-medium text-muted">
+                Projet <span className="font-mono text-faint">~/claude-box/workspace</span>
+              </span>
+              <div
+                role="radiogroup"
+                aria-label="Source du projet"
+                className="flex rounded-md border border-line bg-surface p-0.5 text-[13px]"
+              >
+                {(
+                  [
+                    ['existing', 'Existant'],
+                    ['clone', 'Cloner un repo'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={source === id}
+                    onClick={() => setSource(id)}
+                    className={cx(
+                      'rounded px-2.5 py-1 font-medium transition-colors',
+                      source === id ? 'bg-accent-soft text-fg' : 'text-muted hover:text-fg',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {source === 'clone' ? (
+              <div>
+                <div className="relative">
+                  <Github className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
+                  <input
+                    id="ns-repo"
+                    aria-labelledby="ns-project-label"
+                    value={repo}
+                    onChange={(e) => setRepo(e.target.value)}
+                    placeholder="propriétaire/repo"
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    maxLength={200}
+                    aria-invalid={!!repo && !repoRef}
+                    aria-describedby="ns-repo-help"
+                    className={cx(
+                      'h-11 w-full rounded-md border bg-surface pl-9 pr-3 font-mono text-sm text-fg outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/25',
+                      repo && !repoRef ? 'border-error/60' : 'border-line',
+                    )}
+                  />
+                </div>
+                <p id="ns-repo-help" className={cx('mt-1.5 text-xs', repo && !repoRef ? 'text-error' : 'text-faint')}>
+                  {repo && !repoRef
+                    ? 'Écris-le sous la forme propriétaire/repo (ou colle l’URL GitHub).'
+                    : repoExists
+                      ? `Le dossier ${repoRef!.project} existe déjà : il sera utilisé tel quel.`
+                      : repoRef
+                        ? `gh repo clone ${repoRef.repo} → workspace/${repoRef.project}`
+                        : 'Cloné avec gh dans claude-box, puis ajouté à la liste des projets.'}
+                </p>
+              </div>
+            ) : projects && projects.length === 0 ? (
               <p className="rounded-lg border border-dashed border-line-strong px-4 py-3 text-sm text-muted">
-                Aucun dossier dans <span className="font-mono">~/claude-box/workspace</span>. Crée un projet puis réessaie.
+                Aucun dossier dans <span className="font-mono">~/claude-box/workspace</span>. Clone un repo pour commencer.
               </p>
             ) : (
               <div className="relative">
                 <FolderGit2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
                 <select
                   id="ns-project"
+                  aria-labelledby="ns-project-label"
                   value={project}
                   onChange={(e) => setProject(e.target.value)}
                   className="h-11 w-full appearance-none rounded-md border border-line bg-surface pl-9 pr-9 font-mono text-sm text-fg outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/25"
@@ -231,7 +308,7 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
             Annuler
           </Button>
           <Button type="submit" variant="primary" size="lg" disabled={!canSubmit} loading={busy} className="sm:h-10">
-            Créer la session
+            {busy && cloning && !repoExists ? 'Clonage…' : 'Créer la session'}
           </Button>
         </div>
       </form>

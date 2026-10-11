@@ -1,4 +1,5 @@
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync } from 'node:fs';
+import path from 'node:path';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { App } from '../src/app.js';
@@ -21,6 +22,8 @@ let tmux: FakeTmuxClient;
 let secret: string;
 let recovery: string[];
 let config: ReturnType<typeof testConfig>;
+let clones: Array<{ repo: string; project: string }>;
+let cloneError: string | null;
 
 beforeEach(async () => {
   passwordHash ??= await hashPassword(PASSWORD);
@@ -30,6 +33,8 @@ beforeEach(async () => {
   recovery = regenerateRecoveryCodes(db);
   tmux = new FakeTmuxClient();
   config = testConfig();
+  clones = [];
+  cloneError = null;
   app = await buildApp({
     config,
     db,
@@ -40,6 +45,13 @@ beforeEach(async () => {
     background: false,
     logger: false,
     rateLimit: { ...DEFAULT_RATE_LIMIT, ipThreshold: 5 },
+    cloner: {
+      clone: async (repo, project) => {
+        if (cloneError) throw new Error(cloneError);
+        clones.push({ repo, project });
+        mkdirSync(path.join(config.workspaceDir, project));
+      },
+    },
   });
 });
 
@@ -250,6 +262,37 @@ describe('sessions API', () => {
     expect(tmux.created).toHaveLength(0);
     const del = await app.fastify.inject({ method: 'DELETE', url: '/api/sessions/a%20b', cookies: { kae_sid: sid }, headers: { origin: ORIGIN } });
     expect(del.statusCode).toBe(400);
+  });
+
+  it('clones a GitHub repo into the workspace before launching Claude on it', async () => {
+    const sid = await login();
+    const r = await post('/api/sessions', { name: 'edt', template: 'claude', repo: 'https://github.com/Whiplashhhh/EDT.git' }, { kae_sid: sid });
+    expect(r.statusCode).toBe(200);
+    expect(clones).toEqual([{ repo: 'Whiplashhhh/EDT', project: 'EDT' }]);
+    const { opts } = tmux.created[0]!;
+    expect(opts.command).toContain('/workspace/EDT');
+    expect(opts.userOptions).toMatchObject({ '@kae_project': 'EDT' });
+    const p = (await app.fastify.inject({ url: '/api/projects', cookies: { kae_sid: sid } })).json();
+    expect(p.projects).toEqual(['api', 'EDT', 'webapp']);
+
+    // Already there: reused without cloning again.
+    const again = await post('/api/sessions', { name: 'edt-2', template: 'claude', repo: 'Whiplashhhh/EDT' }, { kae_sid: sid });
+    expect(again.statusCode).toBe(200);
+    expect(clones).toHaveLength(1);
+  });
+
+  it('reports bad repos and clone failures without creating a session', async () => {
+    const sid = await login();
+    for (const repo of ['EDT', '../etc', 'a/b c', 'owner/..', 'x/y;reboot']) {
+      const r = await post('/api/sessions', { name: 'edt', template: 'claude', repo }, { kae_sid: sid });
+      expect(r.statusCode, repo).toBe(400);
+    }
+    cloneError = 'GraphQL: Could not resolve to a Repository';
+    const r = await post('/api/sessions', { name: 'edt', template: 'claude', repo: 'Whiplashhhh/nope' }, { kae_sid: sid });
+    expect(r.statusCode).toBe(502);
+    expect(r.json().message).toContain('Could not resolve');
+    expect(clones).toHaveLength(0);
+    expect(tmux.created).toHaveLength(0);
   });
 
   it('derives Claude status from the events file', async () => {
