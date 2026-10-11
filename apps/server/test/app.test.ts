@@ -335,6 +335,23 @@ describe('sessions API', () => {
     expect(act.map((a: { status: string }) => a.status)).toEqual(['waiting', 'working']);
   });
 
+  it('falls back to the pane ("esc to interrupt") when no hook event arrived', async () => {
+    const sid = await login();
+    await post('/api/sessions', { name: 'web', template: 'claude', project: 'webapp' }, { kae_sid: sid });
+    const status = async () =>
+      (await app.fastify.inject({ url: '/api/sessions', cookies: { kae_sid: sid } })).json().sessions[0].claude.status;
+    expect(await status()).toBe('idle');
+    tmux.write('web', '✻ Réflexion… (12s · esc to interrupt)', '', '> ');
+    expect(await status()).toBe('working');
+    // Hooks win as soon as they speak.
+    appendFileSync(
+      config.eventsFile,
+      `${JSON.stringify({ KEEP_AN_EYE_SESSION: 'web', hook_event_name: 'Stop', ts: Date.now() / 1000 })}\n`,
+    );
+    app.watcher.poll();
+    expect(await status()).toBe('done');
+  });
+
   it('lists projects and templates', async () => {
     const sid = await login();
     const p = (await app.fastify.inject({ url: '/api/projects', cookies: { kae_sid: sid } })).json();

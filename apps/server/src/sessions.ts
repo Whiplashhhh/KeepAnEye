@@ -54,11 +54,16 @@ export class SessionService {
       if (m) project = m[1] ?? null;
     }
 
+    const pane = await this.pane(s.name);
     let claude: ClaudeInfo | null = null;
     if (kind === 'claude') {
       const crashed = s.deadStatus !== null && s.deadStatus !== 0;
+      // Hooks are the source of truth. Without any (not installed, events file unreachable, session started
+      // before the install), the TUI itself tells when Claude is busy: otherwise the badge would stay "idle".
+      const hookStatus = state?.status ?? 'idle';
+      const status = crashed ? 'error' : hookStatus === 'idle' && paneIsBusy(pane) ? 'working' : hookStatus;
       claude = {
-        status: crashed ? 'error' : (state?.status ?? 'idle'),
+        status,
         lastEvent: state?.lastEvent ?? null,
         lastMessage: crashed
           ? `Le processus s'est arrêté${s.deadStatus! > 0 ? ` (code ${s.deadStatus})` : ''}. Ouvre le terminal pour voir pourquoi.`
@@ -78,15 +83,15 @@ export class SessionService {
       activityAt: kind === 'claude' && state ? state.updatedAt : s.activityAt,
       attached: s.attached,
       windows: s.windows,
-      preview: await this.preview(s.name),
+      preview: cleanPreview(pane),
       manageable: SESSION_NAME_RE.test(s.name),
       claude,
     };
   }
 
-  private async preview(name: string): Promise<string[]> {
+  private async pane(name: string): Promise<string[]> {
     try {
-      return cleanPreview(await this.tmux.capturePane(name, 80));
+      return await this.tmux.capturePane(name, 80);
     } catch {
       return [];
     }
@@ -175,6 +180,16 @@ export class SessionService {
 // Box-drawing and TUI chrome characters (Claude Code draws its prompt inside a box).
 const FRAME = /^[\s│┃║╭╮╰╯┌┐└┘├┤─━═┏┓┗┛╔╗╚╝>❯]+|[\s│┃║╭╮╰╯┌┐└┘├┤─━═┏┓┗┛╔╗╚╝]+$/g;
 const CHROME = /^(\? for shortcuts|esc to interrupt)$/i;
+
+/** Claude Code shows "esc to interrupt" in its footer / spinner line for as long as it is working. */
+const BUSY_HINT = /esc to interrupt/i;
+const BUSY_TAIL_LINES = 12;
+
+/** True when the bottom of the pane shows Claude Code's "esc to interrupt" hint (old scrollback is ignored). */
+export function paneIsBusy(lines: string[]): boolean {
+  const tail = lines.filter((l) => l.trim() !== '').slice(-BUSY_TAIL_LINES);
+  return tail.some((l) => BUSY_HINT.test(l));
+}
 
 /** Last meaningful lines of a pane: frames, empty prompts and UI hints are dropped. */
 export function cleanPreview(lines: string[]): string[] {

@@ -311,7 +311,7 @@ Pour restaurer : arrête le service, remplace `data/keep-an-eye.db` par la sauve
 | Mot de passe oublié | `npm run admin:reset-password` (ferme toutes les sessions ouvertes). |
 | « Trop de tentatives » | Blocage temporaire après des échecs ; il se lève seul. Un redémarrage du service le remet à zéro. |
 | Aucune session listée alors que tmux tourne | L'appli doit tourner sous le **même utilisateur** que tmux. Si tu utilises un socket nommé (`tmux -L xxx`), mets-le dans `KAE_TMUX_SOCKET`. |
-| Les sessions Claude restent « Inactif » | Volume `./events:/events` présent ? Hooks installés (`jq` dans le conteneur) ? Session relancée après l'installation ? `tail -f ~/claude-box/events/claude.jsonl` doit bouger quand Claude travaille. |
+| Les sessions Claude restent « Inactif » (sans hooks, l'appli détecte quand même « Travaille » grâce au texte « esc to interrupt » de l'écran, mais jamais « Terminé » / « T'attend ») | Volume `./events:/events` présent ? Hooks installés (`jq` dans le conteneur) ? Session relancée après l'installation ? `tail -f ~/claude-box/events/claude.jsonl` doit bouger quand Claude travaille. |
 | Timeline vide | Le bind mount `./claude-home:/home/claude` est nécessaire, et ton utilisateur doit pouvoir lire `~/claude-box/claude-home/.claude/projects`. |
 | claude-box affiché en gris | `docker compose ps` doit fonctionner sans sudo pour ton utilisateur (groupe `docker`), et `KAE_CLAUDE_BOX_DIR` pointer vers le dossier du `compose.yml`. |
 | Pas de notifications | Appli installée (obligatoire sur iOS), notifications autorisées pour le site, « Activer » cliqué sur cet appareil, plage « ne pas déranger » désactivée. Bouton **Envoyer** pour tester. |
