@@ -125,3 +125,28 @@ test('paste: Ctrl+V pastes text, a pasted image is uploaded and its path typed',
   await page.getByRole('alertdialog').getByRole('button', { name: 'Fermer e2e-paste' }).click();
   await expect(page.getByText('Session « e2e-paste » fermée')).toBeVisible();
 });
+
+test('Shift+Enter sends ESC+CR (newline in Claude Code), Enter stays a plain CR', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Nouvelle session (N)' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nouvelle session' });
+  await dialog.getByText('Terminal', { exact: true }).click();
+  await dialog.getByLabel('Nom').fill('e2e-shift');
+  await dialog.getByRole('button', { name: 'Créer la session' }).click();
+  const rows = page.getByTestId('terminal').locator('.xterm-rows');
+  await expect(rows).toContainText('$', { timeout: 10_000 });
+  await page.getByTestId('terminal').click();
+
+  // Raw mode, then show the bytes received as hex.
+  await page.keyboard.type("stty raw -echo; od -An -tx1 -N3; stty sane");
+  await page.keyboard.press('Enter');
+  await expect(rows).toContainText(':od', { timeout: 10_000 }); // od is running, the tty is raw
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.press('Enter');
+  await expect(rows).toContainText('1b 0d 0d', { timeout: 10_000 });
+
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Fermer e2e-shift' }).click();
+  await expect(page.getByText('Session « e2e-shift » fermée')).toBeVisible();
+});

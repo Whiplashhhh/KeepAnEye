@@ -176,6 +176,12 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
         }
         if (mod && e.code === 'KeyV' && !e.altKey) return false; // no preventDefault: the paste event follows
         if (mod && e.shiftKey && e.code === 'KeyK') return false; // reserved for the command palette
+        // Shift+Enter = newline without sending (Claude Code reads ESC+CR as that; plain Enter stays CR).
+        if (e.key === 'Enter' && e.shiftKey && !mod && !e.altKey) {
+          e.preventDefault();
+          send('\x1b\r');
+          return false;
+        }
         return true;
       });
 

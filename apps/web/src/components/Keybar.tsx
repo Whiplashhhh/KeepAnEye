@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ClipboardPaste, Copy, CornerDownLeft } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ClipboardPaste, Copy, CornerDownLeft, WrapText } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { TerminalHandle } from './Terminal';
@@ -88,6 +88,9 @@ export function Keybar({ term }: { term: React.RefObject<TerminalHandle | null> 
       </Key>
       <Key label="Entrée" onPress={() => send('\r')} wide>
         <CornerDownLeft className="size-4" />
+      </Key>
+      <Key label="Retour à la ligne (Maj+Entrée)" onPress={() => send('\x1b\r')}>
+        <WrapText className="size-4" />
       </Key>
       <Key label="Flèche gauche" onPress={() => send('\x1b[D')}>
         <ArrowLeft className="size-4" />
