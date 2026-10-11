@@ -14,6 +14,9 @@ describe('readPane', () => {
     const perm = ['Do you want to proceed?', '❯ 1. Yes, and don’t ask again for npm commands', '  2. Yes', '  3. No, and tell Claude what to do differently'];
     expect(readPane(perm).waiting).toBe('Do you want to proceed?');
     expect(readPane(['Voici les étapes :', '1. Installer', '2. Lancer', '> ']).waiting).toBeNull();
+    // The conversation quoting the dialog's words is not a dialog.
+    const quoted = ['- « Esc to cancel » dans le pied de la boîte de dialogue ;', '- « Type something » (l’option de saisie libre) ;', '❯ ', '⏵⏵ bypass permissions on'];
+    expect(readPane(quoted).waiting).toBeNull();
     expect(readPane(['> ', '? for shortcuts'])).toEqual({ busy: false, waiting: null });
   });
 

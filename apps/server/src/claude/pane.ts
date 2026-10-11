@@ -18,8 +18,9 @@ const BUSY = /esc to interrupt/i;
 // "Type something" option, and an "Esc to cancel" footer. The first option is not always "Yes".
 const OPTION = /^[\s│┃]*[❯>]?\s*\d+\.\s+\S/;
 const CURSOR = /^[\s│┃]*[❯>]\s*\d+\.\s+\S/;
-const TYPE_SOMETHING = /\btype something\b/i;
-const CANCEL = /\besc to cancel\b/i;
+// Only real dialog lines count: the conversation itself may well quote these words (a bullet, a quote…).
+const TYPE_SOMETHING = /^[\s│┃]*[❯>]?\s*\d+\.\s+type something/i;
+const CANCEL = /^[\s│┃]*(enter to select|esc to cancel)\b/i;
 
 export interface PaneReading {
   busy: boolean;
