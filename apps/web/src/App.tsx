@@ -168,7 +168,9 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
       </aside>
 
       {/* Main area */}
-      <main className="min-h-full min-w-0 flex-1 lg:h-full lg:overflow-y-auto">
+      {/* The main area scrolls, never the document: in the installed iOS PWA a scrolling document
+          lifted the fixed bottom nav off the screen edge. */}
+      <main className="h-full min-w-0 flex-1 overflow-y-auto">
         {link === 'reconnecting' && (
           <div role="status" className="fixed left-1/2 top-[calc(10px+env(safe-area-inset-top))] z-50 flex -translate-x-1/2 animate-fade-in items-center gap-2 rounded-full border border-line-strong bg-elevated/95 px-3 py-1.5 text-xs font-medium text-muted shadow-pop backdrop-blur">
             <WifiOff className="size-3.5 text-waiting" aria-hidden />
