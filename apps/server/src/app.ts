@@ -26,6 +26,7 @@ import { AuthService } from './auth/service.js';
 import { PREAUTH_COOKIE, PREAUTH_MS, SESSION_COOKIE, SESSION_MAX_MS, SessionStore } from './auth/sessions.js';
 import { ClaudeTracker } from './claude/tracker.js';
 import { readTimeline } from './claude/transcript.js';
+import { markHooked, PaneMonitor } from './claude/pane.js';
 import { EventsWatcher } from './claude/watcher.js';
 import type { Config } from './config.js';
 import type { DB } from './db.js';
@@ -69,6 +70,7 @@ export interface App {
   hub: LiveHub;
   tracker: ClaudeTracker;
   watcher: EventsWatcher;
+  paneMonitor: PaneMonitor;
   sessions: SessionStore;
   push: PushService;
   audit: AuditLog;
@@ -108,7 +110,11 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   });
   const hostStats = new HostStats(deps.containerProbe, undefined, config.hostLabel);
   const hub = new LiveHub(sessionService, hostStats);
-  const watcher = new EventsWatcher(db, { file: config.eventsFile }, (ev) => tracker.apply(ev));
+  const watcher = new EventsWatcher(db, { file: config.eventsFile }, (ev) => {
+    markHooked(db, ev.session);
+    tracker.apply(ev);
+  });
+  const paneMonitor = new PaneMonitor(db, tmux, tracker);
 
   tracker.on('change', (change) => {
     if (change.activity) hub.broadcast({ type: 'activity', item: change.activity });
@@ -449,6 +455,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   let maintenance: NodeJS.Timeout | null = null;
   if (deps.background !== false) {
     watcher.start();
+    paneMonitor.start();
     maintenance = setInterval(() => {
       sessions.purgeExpired();
       audit.prune();
@@ -462,11 +469,13 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     hub,
     tracker,
     watcher,
+    paneMonitor,
     sessions,
     push,
     audit,
     async close() {
       watcher.stop();
+      paneMonitor.stop();
       if (maintenance) clearInterval(maintenance);
       clearInterval(revalidateTimer);
       hub.stop();

@@ -3,6 +3,7 @@ import type { ActivityItem, ClaudeStatus } from '@kae/shared';
 import type { DB } from '../db.js';
 import type { ClaudeEvent } from './events.js';
 import type { ClaudeState } from './status.js';
+import { forgetHooked } from './pane.js';
 import { applyEvent } from './status.js';
 
 export interface StatusChange {
@@ -46,6 +47,7 @@ export class ClaudeTracker extends EventEmitter<{ change: [StatusChange] }> {
   /** Forget a session's state (a new tmux session reusing the name starts fresh). */
   reset(session: string): void {
     this.db.prepare('DELETE FROM claude_state WHERE session = ?').run(session);
+    forgetHooked(this.db, session);
   }
 
   apply(ev: ClaudeEvent): StatusChange {

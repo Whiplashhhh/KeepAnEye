@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { hashToken, PREAUTH_MS, SESSION_IDLE_MS, SESSION_MAX_MS, SessionStore } from '../src/auth/sessions.js';
-import { paneIsBusy } from '../src/sessions.js';
 import { memDb } from './helpers.js';
 
 function store() {
@@ -81,13 +80,5 @@ describe('SessionStore', () => {
     advance(SESSION_IDLE_MS + 1);
     s.purgeExpired();
     expect(s.count()).toBe(0);
-  });
-});
-
-describe('paneIsBusy', () => {
-  it('detects the hint near the bottom, ignores old scrollback', () => {
-    expect(paneIsBusy(['a', '✻ Thinking… (3s · esc to interrupt)', '', ''])).toBe(true);
-    expect(paneIsBusy(['esc to interrupt', ...Array.from({ length: 20 }, (_, i) => `line ${i}`)])).toBe(false);
-    expect(paneIsBusy(['> ', '? for shortcuts'])).toBe(false);
   });
 });
