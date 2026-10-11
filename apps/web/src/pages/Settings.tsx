@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 import { Button, Segmented, Skeleton, Switch } from '../components/ui';
+import { setViewportProbe, viewportProbeEnabled } from '../components/ViewportProbe';
 import { api } from '../lib/api';
 import { currentSubscription, disablePush, enablePush, pushSupported } from '../lib/push';
 import type { ThemePref } from '../lib/theme';
@@ -46,6 +47,7 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
   const [subscribed, setSubscribed] = useState<boolean | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
   const [logoutAllBusy, setLogoutAllBusy] = useState(false);
+  const [probe, setProbe] = useState(viewportProbeEnabled);
 
   useEffect(() => {
     api<{ settings: NotificationSettings; devices: number }>('/api/settings/notifications')
@@ -235,6 +237,16 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
           </span>
           <ChevronRight className="size-4 text-faint" aria-hidden />
         </button>
+        <Row label="Diagnostic d’affichage" hint="Mesures de l’écran en surimpression (temporaire)">
+          <Switch
+            label="Diagnostic d’affichage"
+            checked={probe}
+            onChange={(v) => {
+              setProbe(v);
+              setViewportProbe(v);
+            }}
+          />
+        </Row>
       </Section>
       <p className="text-center text-xs text-faint">Keep An Eye · écoute sur 127.0.0.1, servi par Tailscale</p>
     </div>

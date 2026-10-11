@@ -8,6 +8,7 @@ import { BottomNav, SideNav } from './components/Nav';
 import { NewSessionSheet } from './components/NewSession';
 import { SessionList, Summary } from './components/SessionList';
 import { ShortcutsDialog } from './components/Shortcuts';
+import { ViewportProbe } from './components/ViewportProbe';
 import { Button, Kbd, Skeleton } from './components/ui';
 import { api, onUnauthorized } from './lib/api';
 import { updateAttention } from './lib/favicon';
@@ -213,6 +214,7 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
         onLogout={() => void logout()}
       />
       <ShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      <ViewportProbe />
     </div>
   );
 }
