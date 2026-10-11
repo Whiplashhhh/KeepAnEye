@@ -38,7 +38,9 @@ function safeArea(): { top: number; bottom: number } {
 function measure(): string[] {
   const d = document.documentElement;
   const vv = window.visualViewport;
-  const nav = document.querySelector('nav[aria-label="Navigation principale"]')?.getBoundingClientRect();
+  const nav = [...document.querySelectorAll('nav[aria-label="Navigation principale"]')]
+    .map((n) => n.getBoundingClientRect())
+    .find((b) => b.height > 0);
   const sa = safeArea();
   const r = (n: number | undefined) => (n === undefined ? '-' : String(Math.round(n * 10) / 10));
   return [

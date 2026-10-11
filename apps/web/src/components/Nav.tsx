@@ -14,9 +14,7 @@ export function BottomNav({ badge }: { badge: number }) {
   return (
     <nav
       aria-label="Navigation principale"
-      // The after: strip extends the bar below the screen edge: an installed iOS PWA can lay out a
-      // short (non-scrolling) page above the bottom safe area, which left the bar floating over a gap.
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-elevated/90 backdrop-blur-lg safe-bottom after:absolute after:inset-x-0 after:top-full after:h-24 after:bg-elevated/90 lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-elevated/90 backdrop-blur-lg safe-bottom lg:hidden"
     >
       <ul className="mx-auto flex max-w-md">
         {ITEMS.map((it) => {

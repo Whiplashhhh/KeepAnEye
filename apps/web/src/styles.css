@@ -156,6 +156,15 @@ body,
   height: 100%;
 }
 
+/* Installed iOS PWA: while the document is no taller than the screen, iOS shortens the viewport
+   by the status bar inset (844 → 797 on a 390x844 phone), lifting the fixed bottom nav off the
+   edge. A document as tall as the full screen gets the full-height viewport, with nothing to scroll. */
+@media (display-mode: standalone) {
+  #root {
+    min-height: calc(100% + env(safe-area-inset-top));
+  }
+}
+
 body {
   margin: 0;
   background: var(--bg);
