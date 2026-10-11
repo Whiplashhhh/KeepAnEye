@@ -194,15 +194,31 @@ export class RealTmuxClient implements TmuxClient {
   async scrollPane(name: string, lines: number): Promise<void> {
     if (lines === 0) return;
     const target = `=${name}:`;
+    const [inMode, alternate, mouse, width, height] = (
+      await this.run(['display-message', '-p', '-t', target, '#{pane_in_mode}|#{alternate_on}|#{mouse_any_flag}|#{pane_width}|#{pane_height}'])
+    )
+      .trim()
+      .split('|');
+    const n = String(Math.min(Math.abs(lines), 100));
+    if (inMode !== '1' && alternate === '1') {
+      // A full-screen app (Claude Code's fullscreen UI, less, vim…) has no tmux history: it scrolls itself.
+      // Hand it wheel events when it asked for the mouse, arrow keys otherwise.
+      if (mouse === '1') {
+        const x = Math.max(1, Math.floor(Number(width) / 2));
+        const y = Math.max(1, Math.floor(Number(height) / 2));
+        await this.run(['send-keys', '-l', '-N', n, '-t', target, `\x1b[<${lines > 0 ? 64 : 65};${x};${y}M`]);
+      } else {
+        await this.run(['send-keys', '-N', n, '-t', target, lines > 0 ? 'Up' : 'Down']);
+      }
+      return;
+    }
     if (lines > 0) {
       // -e: leave copy mode by itself once scrolled back to the bottom (tmux >= 3.1; older ones lack the flag).
       await this.run(['copy-mode', '-e', '-t', target]).catch(() => this.run(['copy-mode', '-t', target]));
-    } else {
-      // Not in copy mode: nothing to scroll back down, and send-keys -X would fail.
-      const inMode = (await this.run(['display-message', '-p', '-t', target, '#{pane_in_mode}'])).trim();
-      if (inMode !== '1') return;
+    } else if (inMode !== '1') {
+      return; // nothing to scroll back down, and send-keys -X would fail outside copy mode
     }
-    await this.run(['send-keys', '-X', '-t', target, '-N', String(Math.abs(lines)), lines > 0 ? 'scroll-up' : 'scroll-down']);
+    await this.run(['send-keys', '-X', '-t', target, '-N', n, lines > 0 ? 'scroll-up' : 'scroll-down']);
   }
 }
 

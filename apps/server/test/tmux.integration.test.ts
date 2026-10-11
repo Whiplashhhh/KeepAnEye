@@ -1,4 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import type { App } from '../src/app.js';
@@ -112,6 +115,23 @@ describe.skipIf(!hasTmux())('real tmux', () => {
     await tmux.scrollPane('it-scroll', -25);
     expect(await mode()).toMatch(/^0:/); // scrolled back to the bottom: copy mode exits
     await tmux.killSession('it-scroll');
+  });
+
+  it('forwards scrolling to a full-screen app: wheel events when it wants the mouse, arrows otherwise', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kae-scroll-'));
+    const capture = async (name: string, setup: string, lines: number) => {
+      const out = join(dir, name);
+      await tmux.newSession(name, { cwd: '/tmp', command: ['bash', '-c', `printf '${setup}'; stty raw -echo; cat > "$1"`, '_', out] });
+      await new Promise((r) => setTimeout(r, 500));
+      await tmux.scrollPane(name, lines);
+      await new Promise((r) => setTimeout(r, 300));
+      await tmux.killSession(name);
+      return readFileSync(out, 'utf8');
+    };
+    // Alternate screen + SGR mouse reporting, like Claude Code's fullscreen UI.
+    expect(await capture('it-wheel', '\\e[?1049h\\e[?1002h\\e[?1006h', 3)).toBe('\x1b[<64;100;25M'.repeat(3)); // middle of the 200x50 pane
+    expect(await capture('it-arrows', '\\e[?1049h', -2)).toBe('\x1b[B\x1b[B');
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it('keeps a failed command visible and reports it as dead', async () => {
