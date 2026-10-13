@@ -1,11 +1,14 @@
 import { existsSync } from 'node:fs';
 import type { IncomingMessage } from 'node:http';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import type { Duplex } from 'node:stream';
 import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import {
   createSessionSchema,
+  listDirQuerySchema,
+  makeDirSchema,
   notificationSettingsSchema,
   passwordLoginSchema,
   pushSubscriptionSchema,
@@ -30,6 +33,7 @@ import { markHooked, PaneMonitor } from './claude/pane.js';
 import { EventsWatcher } from './claude/watcher.js';
 import type { Config } from './config.js';
 import type { DB } from './db.js';
+import { listDirectory, makeDirectory } from './fs.js';
 import type { ContainerProbe } from './host/stats.js';
 import { HostStats } from './host/stats.js';
 import { parseCookieHeader } from './http/cookies.js';
@@ -257,6 +261,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
       flags: input.flags,
       model: input.model ?? null,
       effort: input.effort ?? null,
+      cwd: input.cwd ?? null,
     });
     await hub.refreshSessions();
     return res;
@@ -312,6 +317,19 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   });
 
   fastify.get('/api/projects', async () => ({ projects: await listProjects(config.workspaceDir) }));
+
+  // Folder picker: browse directories on the host and create new ones.
+  fastify.get('/api/fs', async (req) => {
+    const q = listDirQuerySchema.parse(req.query);
+    return listDirectory(q.path ?? homedir());
+  });
+
+  fastify.post('/api/fs/mkdir', async (req) => {
+    const body = makeDirSchema.parse(req.body);
+    const created = await makeDirectory(body.parent, body.name);
+    audit.record('fs.mkdir', ctxOf(req), { path: created });
+    return { path: created };
+  });
 
   fastify.get('/api/host', async () => hostStats.read());
 

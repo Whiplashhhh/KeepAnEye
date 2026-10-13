@@ -126,6 +126,41 @@ test('paste: Ctrl+V pastes text, a pasted image is uploaded and its path typed',
   await expect(page.getByText('Session « e2e-paste » fermée')).toBeVisible();
 });
 
+test('terminal in a chosen folder: browse, create a folder, open the shell there', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Nouvelle session (N)' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nouvelle session' });
+  await dialog.getByText('Terminal', { exact: true }).click();
+  await expect(dialog.getByText('Le shell s’ouvrira dans ton dossier personnel')).toBeVisible();
+  await dialog.getByRole('radio', { name: 'Choisir un dossier' }).click();
+
+  // Starts in the home folder; browse into a sub-folder, then create a new one there.
+  await expect(dialog.getByRole('button', { name: 'home', exact: true })).toHaveAttribute('aria-current', 'location');
+  await dialog.getByRole('button', { name: 'documents', exact: true }).click();
+  await expect(dialog.getByText('Aucun sous-dossier.')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Nouveau dossier' }).click();
+  await dialog.getByLabel('Nom du nouveau dossier').fill('mon-projet');
+  await dialog.getByLabel('Nom du nouveau dossier').press('Enter');
+  await expect(dialog.getByText(/s’ouvrira dans .*\/home\/documents\/mon-projet$/)).toBeVisible();
+  await expect(dialog.getByLabel('Nom')).toHaveValue('mon-projet');
+
+  // Up goes back to the parent, which now lists the new folder; back in, then create the session.
+  await dialog.getByRole('button', { name: 'Dossier parent' }).click();
+  await dialog.getByRole('button', { name: 'mon-projet', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Créer la session' }).click();
+  await expect(page).toHaveURL(/\/s\/mon-projet$/);
+  const rows = page.getByTestId('terminal').locator('.xterm-rows');
+  await expect(rows).toContainText('$', { timeout: 10_000 });
+  await page.getByTestId('terminal').click();
+  await page.keyboard.type('pwd');
+  await page.keyboard.press('Enter');
+  await expect(rows).toContainText('/home/documents/mon-projet');
+
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Fermer mon-projet' }).click();
+  await expect(page.getByText('Session « mon-projet » fermée')).toBeVisible();
+});
+
 test('Shift+Enter sends ESC+CR (newline in Claude Code), Enter stays a plain CR', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Nouvelle session (N)' }).click();

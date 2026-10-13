@@ -276,6 +276,50 @@ describe('sessions API', () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  it('opens a terminal in a chosen folder, never for templates that do not allow it', async () => {
+    const sid = await login();
+    const dir = path.join(config.workspaceDir, 'webapp');
+    const r = await post('/api/sessions', { name: 'here', template: 'terminal', cwd: `${dir}/` }, { kae_sid: sid });
+    expect(r.statusCode).toBe(200);
+    expect(tmux.created[0]!.opts.cwd).toBe(dir);
+    const cases = [
+      { name: 'a', template: 'terminal', cwd: 'relative/dir' },
+      { name: 'b', template: 'terminal', cwd: path.join(dir, 'missing') },
+      { name: 'c', template: 'terminal', cwd: config.templatesFile },
+      { name: 'd', template: 'claude', project: 'webapp', cwd: dir },
+    ];
+    for (const c of cases) expect((await post('/api/sessions', c, { kae_sid: sid })).statusCode, JSON.stringify(c)).toBe(400);
+    expect(tmux.created).toHaveLength(1);
+  });
+
+  it('browses folders and creates new ones for the folder picker', async () => {
+    const sid = await login();
+    const ls = (p: string) => app.fastify.inject({ url: `/api/fs?path=${encodeURIComponent(p)}`, cookies: { kae_sid: sid } });
+    mkdirSync(path.join(config.workspaceDir, '.hidden'));
+    const root = (await ls(config.workspaceDir)).json();
+    expect(root).toMatchObject({ path: config.workspaceDir, parent: config.claudeBoxDir, truncated: false });
+    expect(root.entries).toEqual([
+      { name: '.hidden', hidden: true },
+      { name: 'api', hidden: false },
+      { name: 'webapp', hidden: false },
+    ]);
+    expect((await ls('/')).json().parent).toBeNull();
+    expect((await ls('relative')).statusCode).toBe(400);
+    expect((await ls(path.join(config.workspaceDir, 'missing'))).statusCode).toBe(400);
+    expect((await app.fastify.inject({ url: '/api/fs' })).statusCode).toBe(401);
+
+    const made = await post('/api/fs/mkdir', { parent: config.workspaceDir, name: ' nouveau projet ' }, { kae_sid: sid });
+    expect(made.statusCode).toBe(200);
+    expect(made.json().path).toBe(path.join(config.workspaceDir, 'nouveau projet'));
+    expect((await ls(config.workspaceDir)).json().entries.map((e: { name: string }) => e.name)).toContain('nouveau projet');
+    expect((await post('/api/fs/mkdir', { parent: config.workspaceDir, name: 'nouveau projet' }, { kae_sid: sid })).statusCode).toBe(409);
+    for (const name of ['..', '.', 'a/b', '  ']) {
+      expect((await post('/api/fs/mkdir', { parent: config.workspaceDir, name }, { kae_sid: sid })).statusCode, name).toBe(400);
+    }
+    expect((await post('/api/fs/mkdir', { parent: config.workspaceDir, name: 'x' }, { kae_sid: sid }, null)).statusCode).toBe(403);
+    expect(app.audit.list().map((e) => e.event)).toContain('fs.mkdir');
+  });
+
   it('refuses unknown projects, bad names and unknown templates', async () => {
     const sid = await login();
     const cases = [

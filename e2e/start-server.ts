@@ -50,6 +50,9 @@ const projects = mode === 'demo' ? ['billing-api', 'docs-site', 'dotfiles', 'scr
 for (const p of projects) mkdirSync(path.join(workspaceDir, p), { recursive: true });
 mkdirSync(path.dirname(eventsFile), { recursive: true });
 writeFileSync(eventsFile, '');
+// A throwaway home: the folder picker starts there and the e2e tests create folders in it.
+process.env.HOME = path.join(root, 'home');
+mkdirSync(path.join(process.env.HOME, 'documents'), { recursive: true });
 
 const origin = `http://localhost:${port}`;
 const config: Config = {

@@ -111,6 +111,18 @@ export interface TemplateInfo {
   models: TemplateChoice[];
   /** Thinking effort levels the user can pick (none picked = the CLI default). */
   efforts: TemplateChoice[];
+  /** The user may pick the working directory (otherwise the template's own cwd is used). */
+  chooseCwd: boolean;
+}
+
+/** One level of the folder picker: sub-directories only. */
+export interface DirListing {
+  path: string;
+  /** null at the filesystem root. */
+  parent: string | null;
+  entries: { name: string; hidden: boolean }[];
+  /** More entries than the server sends back. */
+  truncated: boolean;
 }
 
 export interface ActivityItem {
@@ -186,8 +198,17 @@ export const createSessionSchema = z.object({
   /** Id of one of the template's models / efforts; omitted = the CLI default. */
   model: z.string().max(40).optional(),
   effort: z.string().max(40).optional(),
+  /** Absolute working directory, for templates that let the user choose it; omitted = the template's cwd. */
+  cwd: z.string().min(1).max(4096).optional(),
 });
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;
+
+export const listDirQuerySchema = z.object({ path: z.string().min(1).max(4096).optional() });
+
+export const makeDirSchema = z.object({
+  parent: z.string().min(1).max(4096),
+  name: z.string().min(1).max(255),
+});
 
 export const pushSubscriptionSchema = z.object({
   endpoint: z.string().url().max(2048).startsWith('https://'),

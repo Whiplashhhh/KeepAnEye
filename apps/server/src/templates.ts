@@ -25,6 +25,8 @@ const templateSchema = z.object({
   keepOnFailure: z.boolean().default(false),
   /** Working directory (placeholders allowed). Defaults to {home}. */
   cwd: z.string().max(500).default('{home}'),
+  /** Let the user pick another working directory when creating the session (folder picker). */
+  chooseCwd: z.boolean().default(false),
   flags: z
     .array(
       z.object({
@@ -66,6 +68,7 @@ export function toTemplateInfo(t: Template): TemplateInfo {
     flags: t.flags.map(({ id, label, description }) => (description ? { id, label, description } : { id, label })),
     models: t.models.map(toChoiceInfo),
     efforts: t.efforts.map(toChoiceInfo),
+    chooseCwd: t.chooseCwd,
   };
 }
 

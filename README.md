@@ -253,6 +253,8 @@ Les modèles sont dans [`config/templates.json`](config/templates.json) (ou le f
 | `{claudeBoxDir}`, `{workspaceDir}`, `{home}` | chemins configurés |
 | `"{flags}"` | arguments du modèle et du niveau de réflexion choisis, puis des options cochées (par ex. `--dangerously-skip-permissions` pour « Autonome ») |
 
+Avec `"chooseCwd": true` (c'est le cas de « Terminal »), la feuille propose « Dossier personnel » ou « Choisir un dossier » : un explorateur parcourt les dossiers de l'hôte (dossiers cachés masqués par défaut) et permet d'en créer un nouveau sur place. Le dossier affiché devient le dossier de départ du shell ; le serveur vérifie qu'il existe. Sous Docker, seuls les dossiers montés dans le conteneur sont visibles : `compose.yml` monte ton dossier personnel pour ça. Chaque création de dossier est inscrite au journal d'audit.
+
 Un modèle peut déclarer des listes `models` et `efforts` (chaque entrée : `id`, `label`, `args`). La feuille « Nouvelle session » les affiche comme des choix « Modèle IA » et « Capacité de réflexion » (par défaut : aucun argument, donc les réglages habituels de Claude Code). Le serveur n'accepte que les identifiants déclarés.
 
 Exemple de modèle supplémentaire :

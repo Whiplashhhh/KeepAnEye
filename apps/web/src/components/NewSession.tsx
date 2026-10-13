@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { suggestName } from '../lib/format';
 import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
+import { FolderPicker } from './FolderPicker';
 import { Button, Sheet, Skeleton, cx } from './ui';
 
 function slug(s: string): string {
@@ -73,6 +74,9 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
   const [flags, setFlags] = useState<string[]>([]);
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
+  const [cwdMode, setCwdMode] = useState<'home' | 'custom'>('home');
+  const [cwd, setCwd] = useState('');
+  const [home, setHome] = useState('');
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -101,19 +105,29 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
   const repoRef = parseRepoRef(repo);
   const cloning = !!template?.requiresProject && source === 'clone';
   const chosenProject = cloning ? (repoRef?.project ?? '') : project;
+  const customCwd = !!template?.chooseCwd && cwdMode === 'custom';
+  // Name the session after the chosen folder, but not after the home folder (that would be the user name).
+  const cwdBase = customCwd && cwd !== home ? cwd.split('/').filter(Boolean).pop() : undefined;
   const repoExists = !!repoRef && !!projects?.includes(repoRef.project);
 
   // Prefill a name that follows the choices until the user edits it.
   useEffect(() => {
     if (nameTouched) return;
     const base =
-      template?.requiresProject && chosenProject ? slug(chosenProject) : template?.kind === 'claude' ? 'claude' : 'shell';
+      template?.requiresProject && chosenProject
+        ? slug(chosenProject)
+        : cwdBase
+          ? slug(cwdBase)
+          : template?.kind === 'claude'
+            ? 'claude'
+            : 'shell';
     setName(existing.includes(base) || base === 'shell' ? suggestName(existing, base) : base);
-  }, [template, chosenProject, existing, nameTouched]);
+  }, [template, chosenProject, cwdBase, existing, nameTouched]);
 
   const nameValid = SESSION_NAME_RE.test(name);
   const nameTaken = existing.includes(name);
-  const canSubmit = nameValid && !nameTaken && !!template && (!template.requiresProject || !!chosenProject) && !busy;
+  const canSubmit =
+    nameValid && !nameTaken && !!template && (!template.requiresProject || !!chosenProject) && (!customCwd || !!cwd) && !busy;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -131,6 +145,7 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
           flags,
           model: model || undefined,
           effort: effort || undefined,
+          cwd: customCwd ? cwd : undefined,
         },
       });
       if (cloning) void api<{ projects: string[] }>('/api/projects').then((p) => setProjects(p.projects)).catch(() => undefined);
@@ -289,6 +304,48 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
                   ▾
                 </span>
               </div>
+            )}
+          </div>
+        )}
+
+        {template?.chooseCwd && (
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="text-[13px] font-medium text-muted">Dossier</span>
+              <div role="radiogroup" aria-label="Dossier de départ" className="flex rounded-md border border-line bg-surface p-0.5 text-[13px]">
+                {(
+                  [
+                    ['home', 'Dossier personnel'],
+                    ['custom', 'Choisir un dossier'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={cwdMode === id}
+                    onClick={() => setCwdMode(id)}
+                    className={cx(
+                      'rounded px-2.5 py-1 font-medium transition-colors',
+                      cwdMode === id ? 'bg-accent-soft text-fg' : 'text-muted hover:text-fg',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {cwdMode === 'custom' ? (
+              <>
+                <FolderPicker value={cwd} onChange={setCwd} onHome={setHome} />
+                <p className="mt-1.5 truncate text-xs text-faint">
+                  Le shell s’ouvrira dans <span className="font-mono text-muted">{cwd || '…'}</span>
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-faint">
+                Le shell s’ouvrira dans ton dossier personnel (<span className="font-mono">~</span>).
+              </p>
             )}
           </div>
         )}

@@ -4,6 +4,7 @@ import type { ClaudeInfo, CreateSessionInput, SessionInfo, SessionKind } from '@
 import { parseRepoRef, SESSION_NAME_RE, sortSessions } from '@kae/shared';
 import type { ClaudeTracker } from './claude/tracker.js';
 import { resolveTranscriptPath } from './claude/transcript.js';
+import { absolutePath, assertDirectory } from './fs.js';
 import { HttpError } from './http/errors.js';
 import type { RepoCloner } from './projects.js';
 import { isValidProject, listProjects } from './projects.js';
@@ -118,7 +119,12 @@ export class SessionService {
     } catch (e) {
       throw new HttpError(400, 'invalid_flags', (e as Error).message);
     }
-    const cwd = this.opts.checkCwd === false || existsSync(expanded.cwd) ? expanded.cwd : homedir();
+    let cwd = this.opts.checkCwd === false || existsSync(expanded.cwd) ? expanded.cwd : homedir();
+    if (input.cwd !== undefined) {
+      if (!template.chooseCwd) throw new HttpError(400, 'invalid_cwd', 'Ce modèle ne permet pas de choisir le dossier.');
+      cwd = absolutePath(input.cwd);
+      await assertDirectory(cwd);
+    }
     this.tracker.reset(input.name);
     const userOptions: Record<string, string> = { '@kae_kind': template.kind, '@kae_template': template.id };
     if (project) userOptions['@kae_project'] = project;

@@ -6,7 +6,8 @@
       "description": "Un shell simple sur l'hôte",
       "kind": "terminal",
       "command": [],
-      "cwd": "{home}"
+      "cwd": "{home}",
+      "chooseCwd": true
     },
     {
       "id": "claude",

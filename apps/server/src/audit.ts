@@ -13,6 +13,7 @@ export type AuditEvent =
   | 'session.created'
   | 'session.closed'
   | 'session.upload'
+  | 'fs.mkdir'
   | 'terminal.opened'
   | 'admin.init'
   | 'admin.reset_2fa'

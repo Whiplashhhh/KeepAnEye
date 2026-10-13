@@ -30,6 +30,13 @@ services:
         target: /tmp/tmux-${HOST_UID}
         bind:
           create_host_path: false
+      # Ton dossier personnel au MÊME chemin que sur l'hôte : le sélecteur de dossier de « Terminal »
+      # le parcourt et peut y créer des dossiers (le shell, lui, tourne dans tmux sur l'hôte).
+      - type: bind
+        source: ${HOST_HOME}
+        target: ${HOST_HOME}
+        bind:
+          create_host_path: false
       # claude-box au MÊME chemin que sur l'hôte : tmux (sur l'hôte) et l'appli voient les mêmes chemins.
       - type: bind
         source: ${HOST_HOME}/claude-box
