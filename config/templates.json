@@ -22,6 +22,19 @@
         "-e", "KEEP_AN_EYE_SESSION={session}",
         "claude", "claude", "{flags}"
       ],
+      "models": [
+        { "id": "fable", "label": "Fable", "description": "Le plus capable", "args": ["--model", "fable"] },
+        { "id": "opus", "label": "Opus", "args": ["--model", "opus"] },
+        { "id": "sonnet", "label": "Sonnet", "description": "Équilibré", "args": ["--model", "sonnet"] },
+        { "id": "haiku", "label": "Haiku", "description": "Rapide et léger", "args": ["--model", "haiku"] }
+      ],
+      "efforts": [
+        { "id": "low", "label": "Faible", "args": ["--effort", "low"] },
+        { "id": "medium", "label": "Moyen", "args": ["--effort", "medium"] },
+        { "id": "high", "label": "Élevé", "args": ["--effort", "high"] },
+        { "id": "xhigh", "label": "Très élevé", "args": ["--effort", "xhigh"] },
+        { "id": "max", "label": "Maximum", "args": ["--effort", "max"] }
+      ],
       "flags": [
         {
           "id": "autonomous",

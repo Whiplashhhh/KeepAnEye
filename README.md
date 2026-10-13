@@ -251,7 +251,9 @@ Les modèles sont dans [`config/templates.json`](config/templates.json) (ou le f
 | `{session}` | nom de la session (validé) |
 | `{project}` | projet choisi (vérifié dans `~/claude-box/workspace`) |
 | `{claudeBoxDir}`, `{workspaceDir}`, `{home}` | chemins configurés |
-| `"{flags}"` | arguments des options cochées (par ex. `--dangerously-skip-permissions` pour « Autonome ») |
+| `"{flags}"` | arguments du modèle et du niveau de réflexion choisis, puis des options cochées (par ex. `--dangerously-skip-permissions` pour « Autonome ») |
+
+Un modèle peut déclarer des listes `models` et `efforts` (chaque entrée : `id`, `label`, `args`). La feuille « Nouvelle session » les affiche comme des choix « Modèle IA » et « Capacité de réflexion » (par défaut : aucun argument, donc les réglages habituels de Claude Code). Le serveur n'accepte que les identifiants déclarés.
 
 Exemple de modèle supplémentaire :
 

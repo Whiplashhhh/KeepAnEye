@@ -79,6 +79,16 @@ describe('templates', () => {
     expect(cmd.slice(-2)).toEqual(['claude', '--dangerously-skip-permissions']);
   });
 
+  it('model and effort add their args before the checked flags', () => {
+    const cmd = expandTemplate(claude, ctx, ['autonomous'], { model: 'opus', effort: 'high' }).command;
+    expect(cmd.slice(cmd.indexOf('--model'))).toEqual(['--model', 'opus', '--effort', 'high', '--dangerously-skip-permissions']);
+  });
+
+  it('rejects unknown models and efforts', () => {
+    expect(() => expandTemplate(claude, ctx, [], { model: 'gpt' })).toThrow(/Modèle/);
+    expect(() => expandTemplate(claude, ctx, [], { effort: '--rm' })).toThrow(/réflexion/);
+  });
+
   it('rejects unknown flags', () => {
     expect(() => expandTemplate(claude, ctx, ['rm'])).toThrow();
   });

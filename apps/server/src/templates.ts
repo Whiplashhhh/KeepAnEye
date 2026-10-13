@@ -1,10 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import type { TemplateInfo } from '@kae/shared';
+import type { TemplateChoice, TemplateInfo } from '@kae/shared';
 import { SESSION_KINDS } from '@kae/shared';
 import { z } from 'zod';
 
 const tokenRe = /^[a-zA-Z0-9_-]{1,40}$/;
+
+const choiceSchema = z.object({
+  id: z.string().regex(tokenRe),
+  label: z.string().min(1).max(60),
+  description: z.string().max(200).optional(),
+  args: z.array(z.string().max(200)).max(16),
+});
 
 const templateSchema = z.object({
   id: z.string().regex(tokenRe),
@@ -29,6 +36,9 @@ const templateSchema = z.object({
     )
     .max(10)
     .default([]),
+  /** Selectable models and thinking efforts; their args are added at "{flags}", before the checked flags. */
+  models: z.array(choiceSchema).max(20).default([]),
+  efforts: z.array(choiceSchema).max(20).default([]),
 });
 
 export type Template = z.infer<typeof templateSchema>;
@@ -54,7 +64,13 @@ export function toTemplateInfo(t: Template): TemplateInfo {
     kind: t.kind,
     requiresProject: t.requiresProject,
     flags: t.flags.map(({ id, label, description }) => (description ? { id, label, description } : { id, label })),
+    models: t.models.map(toChoiceInfo),
+    efforts: t.efforts.map(toChoiceInfo),
   };
+}
+
+function toChoiceInfo({ id, label, description }: Template['models'][number]): TemplateChoice {
+  return description ? { id, label, description } : { id, label };
 }
 
 export interface ExpandContext {
@@ -83,10 +99,31 @@ function substitute(s: string, ctx: ExpandContext): string {
   });
 }
 
-export function expandTemplate(t: Template, ctx: ExpandContext, flagIds: string[]): { command: string[]; cwd: string } {
+export interface TemplatePicks {
+  model?: string;
+  effort?: string;
+}
+
+function pickArgs(list: Template['models'], id: string | undefined, what: string): string[] {
+  if (id === undefined) return [];
+  const choice = list.find((c) => c.id === id);
+  if (!choice) throw new Error(`${what} inconnu : ${id}`);
+  return choice.args;
+}
+
+export function expandTemplate(
+  t: Template,
+  ctx: ExpandContext,
+  flagIds: string[],
+  picks: TemplatePicks = {},
+): { command: string[]; cwd: string } {
   const unknown = flagIds.filter((f) => !t.flags.some((tf) => tf.id === f));
   if (unknown.length) throw new Error(`Option inconnue : ${unknown.join(', ')}`);
-  const flagArgs = t.flags.filter((f) => flagIds.includes(f.id)).flatMap((f) => f.args);
+  const flagArgs = [
+    ...pickArgs(t.models, picks.model, 'Modèle'),
+    ...pickArgs(t.efforts, picks.effort, 'Niveau de réflexion'),
+    ...t.flags.filter((f) => flagIds.includes(f.id)).flatMap((f) => f.args),
+  ];
   const command: string[] = [];
   for (const part of t.command) {
     if (part === '{flags}') command.push(...flagArgs.map((a) => substitute(a, ctx)));

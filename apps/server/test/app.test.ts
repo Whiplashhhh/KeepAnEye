@@ -267,6 +267,15 @@ describe('sessions API', () => {
     expect(opts.userOptions).toMatchObject({ '@kae_kind': 'claude', '@kae_project': 'webapp' });
   });
 
+  it('passes the chosen model and thinking effort to Claude', async () => {
+    const sid = await login();
+    const r = await post('/api/sessions', { name: 'web', template: 'claude', project: 'webapp', model: 'sonnet', effort: 'max' }, { kae_sid: sid });
+    expect(r.statusCode).toBe(200);
+    expect(tmux.created[0]!.opts.command!.slice(-5)).toEqual(['claude', '--model', 'sonnet', '--effort', 'max']);
+    const bad = await post('/api/sessions', { name: 'web2', template: 'claude', project: 'webapp', model: 'nope' }, { kae_sid: sid });
+    expect(bad.statusCode).toBe(400);
+  });
+
   it('refuses unknown projects, bad names and unknown templates', async () => {
     const sid = await login();
     const cases = [

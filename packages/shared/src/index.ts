@@ -93,6 +93,13 @@ export interface TemplateFlag {
   description?: string;
 }
 
+/** One pick in a template's "model" or "effort" list; its args are added to the command when chosen. */
+export interface TemplateChoice {
+  id: string;
+  label: string;
+  description?: string;
+}
+
 export interface TemplateInfo {
   id: string;
   label: string;
@@ -100,6 +107,10 @@ export interface TemplateInfo {
   kind: SessionKind;
   requiresProject: boolean;
   flags: TemplateFlag[];
+  /** Models the user can pick (none picked = the CLI default). */
+  models: TemplateChoice[];
+  /** Thinking effort levels the user can pick (none picked = the CLI default). */
+  efforts: TemplateChoice[];
 }
 
 export interface ActivityItem {
@@ -172,6 +183,9 @@ export const createSessionSchema = z.object({
   /** GitHub repo ("owner/repo") to clone into the workspace first; replaces `project`. */
   repo: z.string().max(200).optional(),
   flags: z.array(z.string().max(40)).max(10).default([]),
+  /** Id of one of the template's models / efforts; omitted = the CLI default. */
+  model: z.string().max(40).optional(),
+  effort: z.string().max(40).optional(),
 });
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;
 

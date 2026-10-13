@@ -255,6 +255,8 @@ export async function buildApp(deps: AppDeps): Promise<App> {
       project: input.project ?? null,
       repo: input.repo ?? null,
       flags: input.flags,
+      model: input.model ?? null,
+      effort: input.effort ?? null,
     });
     await hub.refreshSessions();
     return res;

@@ -113,6 +113,7 @@ export class SessionService {
         template,
         { session: input.name, project, claudeBoxDir: this.opts.claudeBoxDir, workspaceDir: this.opts.workspaceDir },
         input.flags,
+        { model: input.model, effort: input.effort },
       );
     } catch (e) {
       throw new HttpError(400, 'invalid_flags', (e as Error).message);

@@ -1,4 +1,4 @@
-import type { TemplateInfo } from '@kae/shared';
+import type { TemplateChoice, TemplateInfo } from '@kae/shared';
 import { parseRepoRef, SESSION_NAME_RE } from '@kae/shared';
 import { Bot, FolderGit2, Github, ShieldAlert, SquareTerminal } from 'lucide-react';
 import type { FormEvent } from 'react';
@@ -14,6 +14,52 @@ function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'session';
 }
 
+/** Pill radio group with an implicit "Par défaut" (empty value = the CLI default). */
+function ChoiceGroup({
+  label,
+  choices,
+  value,
+  onChange,
+}: {
+  label: string;
+  choices: TemplateChoice[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const options = [{ id: '', label: 'Par défaut' }, ...choices];
+  const hint = choices.find((c) => c.id === value)?.description;
+  return (
+    <fieldset>
+      <legend className="mb-2 text-[13px] font-medium text-muted">{label}</legend>
+      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+        {options.map((o) => {
+          const active = o.id === value;
+          return (
+            <label
+              key={o.id}
+              className={cx(
+                'cursor-pointer rounded-md border px-3 py-2 text-sm font-medium transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent',
+                active ? 'border-accent/70 bg-accent-soft text-fg' : 'border-line bg-surface text-muted hover:border-line-strong hover:text-fg',
+              )}
+            >
+              <input
+                type="radio"
+                name={`ns-${label}`}
+                value={o.id}
+                checked={active}
+                onChange={() => onChange(o.id)}
+                className="sr-only"
+              />
+              {o.label}
+            </label>
+          );
+        })}
+      </div>
+      {hint && <p className="mt-1.5 text-xs text-faint">{hint}</p>}
+    </fieldset>
+  );
+}
+
 export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { sessions, refresh } = useLive();
   const toast = useToast();
@@ -25,6 +71,8 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
   const [source, setSource] = useState<'existing' | 'clone'>('existing');
   const [repo, setRepo] = useState('');
   const [flags, setFlags] = useState<string[]>([]);
+  const [model, setModel] = useState('');
+  const [effort, setEffort] = useState('');
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -38,6 +86,8 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
     setError(null);
     setNameTouched(false);
     setFlags([]);
+    setModel('');
+    setEffort('');
     void Promise.all([api<{ templates: TemplateInfo[] }>('/api/templates'), api<{ projects: string[] }>('/api/projects')])
       .then(([t, p]) => {
         setTemplates(t.templates);
@@ -79,6 +129,8 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
           project: template.requiresProject && !cloning ? project : undefined,
           repo: cloning ? repoRef?.repo : undefined,
           flags,
+          model: model || undefined,
+          effort: effort || undefined,
         },
       });
       if (cloning) void api<{ projects: string[] }>('/api/projects').then((p) => setProjects(p.projects)).catch(() => undefined);
@@ -119,6 +171,8 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
                       onChange={() => {
                         setTemplateId(t.id);
                         setFlags([]);
+                        setModel('');
+                        setEffort('');
                       }}
                       className="sr-only"
                     />
@@ -237,6 +291,11 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
               </div>
             )}
           </div>
+        )}
+
+        {!!template?.models.length && <ChoiceGroup label="Modèle IA" choices={template.models} value={model} onChange={setModel} />}
+        {!!template?.efforts.length && (
+          <ChoiceGroup label="Capacité de réflexion" choices={template.efforts} value={effort} onChange={setEffort} />
         )}
 
         {template?.flags.map((f) => {
