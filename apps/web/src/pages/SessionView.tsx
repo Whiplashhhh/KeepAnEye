@@ -1,4 +1,4 @@
-import { ArrowLeft, Bot, ScrollText, SearchX, SquareTerminal, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bot, ScrollText, SearchX, Server, SquareTerminal, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import { CloseSessionDialog } from '../components/CloseSession';
@@ -128,8 +128,8 @@ export function SessionView({ name }: { name: string }) {
                       </span>
                     </span>
                   )}
-                  {isClaude ? <Bot className="hidden size-3.5 shrink-0 sm:block" aria-hidden /> : <SquareTerminal className="size-3.5 shrink-0" aria-hidden />}
-                  <span className="truncate">{isClaude ? (session.project ?? 'projet inconnu') : 'Terminal sur l’hôte'}</span>
+                  {isClaude ? <Bot className="hidden size-3.5 shrink-0 sm:block" aria-hidden /> : (session.sshHost ? <Server className="size-3.5 shrink-0" aria-hidden /> : <SquareTerminal className="size-3.5 shrink-0" aria-hidden />)}
+                  <span className="truncate">{isClaude ? (session.project ?? 'projet inconnu') : session.sshHost ? `SSH · ${session.sshHost}` : 'Terminal sur l’hôte'}</span>
                 </p>
               </>
             ) : (

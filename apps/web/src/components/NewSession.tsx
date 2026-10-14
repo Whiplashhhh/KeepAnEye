@@ -1,6 +1,6 @@
-import type { TemplateChoice, TemplateInfo } from '@kae/shared';
+import type { SshHost, TemplateChoice, TemplateInfo } from '@kae/shared';
 import { parseRepoRef, SESSION_NAME_RE } from '@kae/shared';
-import { Bot, FolderGit2, Github, ShieldAlert, SquareTerminal } from 'lucide-react';
+import { Bot, FolderGit2, Github, Plus, Server, ShieldAlert, SquareTerminal } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
@@ -9,6 +9,7 @@ import { suggestName } from '../lib/format';
 import { useLive } from '../lib/live';
 import { useToast } from '../lib/toast';
 import { FolderPicker } from './FolderPicker';
+import { SshHostSheet, sshTarget } from './SshHostSheet';
 import { Button, Sheet, Skeleton, cx } from './ui';
 
 function slug(s: string): string {
@@ -68,6 +69,9 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
   const [templates, setTemplates] = useState<TemplateInfo[] | null>(null);
   const [projects, setProjects] = useState<string[] | null>(null);
   const [templateId, setTemplateId] = useState('terminal');
+  const [machines, setMachines] = useState<SshHost[] | null>(null);
+  const [machineId, setMachineId] = useState<number | null>(null);
+  const [addMachine, setAddMachine] = useState(false);
   const [project, setProject] = useState('');
   const [source, setSource] = useState<'existing' | 'clone'>('existing');
   const [repo, setRepo] = useState('');
@@ -82,6 +86,7 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const machine = machines?.find((m) => m.id === machineId);
   const existing = useMemo(() => (sessions ?? []).map((s) => s.name), [sessions]);
   const template = templates?.find((t) => t.id === templateId);
 
@@ -92,9 +97,15 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
     setFlags([]);
     setModel('');
     setEffort('');
-    void Promise.all([api<{ templates: TemplateInfo[] }>('/api/templates'), api<{ projects: string[] }>('/api/projects')])
-      .then(([t, p]) => {
+    void Promise.all([
+      api<{ templates: TemplateInfo[] }>('/api/templates'),
+      api<{ projects: string[] }>('/api/projects'),
+      api<{ hosts: SshHost[] }>('/api/ssh-hosts'),
+    ])
+      .then(([t, p, h]) => {
         setTemplates(t.templates);
+        setMachines(h.hosts);
+        setMachineId((cur) => (cur !== null && h.hosts.some((m) => m.id === cur) ? cur : (h.hosts[0]?.id ?? null)));
         setProjects(p.projects);
         setProject((cur) => (cur && p.projects.includes(cur) ? cur : (p.projects[0] ?? '')));
         if (p.projects.length === 0) setSource('clone');
@@ -118,16 +129,18 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
         ? slug(chosenProject)
         : cwdBase
           ? slug(cwdBase)
-          : template?.kind === 'claude'
-            ? 'claude'
-            : 'shell';
+          : template?.requiresSshHost && machine
+            ? slug(machine.name)
+            : template?.kind === 'claude'
+              ? 'claude'
+              : 'shell';
     setName(existing.includes(base) || base === 'shell' ? suggestName(existing, base) : base);
-  }, [template, chosenProject, cwdBase, existing, nameTouched]);
+  }, [template, chosenProject, cwdBase, machine, existing, nameTouched]);
 
   const nameValid = SESSION_NAME_RE.test(name);
   const nameTaken = existing.includes(name);
   const canSubmit =
-    nameValid && !nameTaken && !!template && (!template.requiresProject || !!chosenProject) && (!customCwd || !!cwd) && !busy;
+    nameValid && !nameTaken && !!template && (!template.requiresProject || !!chosenProject) && (!template.requiresSshHost || !!machine) && (!customCwd || !!cwd) && !busy;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -146,6 +159,7 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
           model: model || undefined,
           effort: effort || undefined,
           cwd: customCwd ? cwd : undefined,
+          sshHost: template.requiresSshHost ? machine?.id : undefined,
         },
       });
       if (cloning) void api<{ projects: string[] }>('/api/projects').then((p) => setProjects(p.projects)).catch(() => undefined);
@@ -168,7 +182,7 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
           {templates ? (
             <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
               {templates.map((t) => {
-                const Icon = t.kind === 'claude' ? Bot : SquareTerminal;
+                const Icon = t.kind === 'claude' ? Bot : t.requiresSshHost ? Server : SquareTerminal;
                 const active = t.id === templateId;
                 return (
                   <label
@@ -308,6 +322,53 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
           </div>
         )}
 
+        {template?.requiresSshHost && (
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label htmlFor="ns-machine" className="text-[13px] font-medium text-muted">
+                Machine
+              </label>
+              <button
+                type="button"
+                onClick={() => setAddMachine(true)}
+                className="inline-flex items-center gap-1 rounded text-[13px] font-medium text-muted transition-colors hover:text-fg"
+              >
+                <Plus className="size-3.5" aria-hidden />
+                Ajouter
+              </button>
+            </div>
+            {machines && machines.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-line-strong px-4 py-3 text-sm text-muted">
+                Aucune machine SSH enregistrée. Ajoute ton VPS pour y ouvrir un terminal.
+              </p>
+            ) : (
+              <>
+                <div className="relative">
+                  <Server className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
+                  <select
+                    id="ns-machine"
+                    value={machineId ?? ''}
+                    onChange={(e) => setMachineId(Number(e.target.value))}
+                    className="h-11 w-full appearance-none rounded-md border border-line bg-surface pl-9 pr-9 text-sm text-fg outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/25"
+                  >
+                    {(machines ?? []).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} — {sshTarget(m)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-faint" aria-hidden>
+                    ▾
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs text-faint">
+                  Un mot de passe ou une confirmation de clé d’hôte te sera demandé dans le terminal si besoin.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
         {template?.chooseCwd && (
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -428,6 +489,14 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
           </Button>
         </div>
       </form>
+      <SshHostSheet
+        open={addMachine}
+        onOpenChange={setAddMachine}
+        onSaved={(m) => {
+          setMachines((cur) => [...(cur ?? []), m].sort((a, b) => a.name.localeCompare(b.name)));
+          setMachineId(m.id);
+        }}
+      />
     </Sheet>
   );
 }

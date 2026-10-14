@@ -8,6 +8,8 @@ import { absolutePath, assertDirectory } from './fs.js';
 import { HttpError } from './http/errors.js';
 import type { RepoCloner } from './projects.js';
 import { isValidProject, listProjects } from './projects.js';
+import type { SshHostStore } from './ssh.js';
+import { sshArgs } from './ssh.js';
 import type { Template } from './templates.js';
 import { expandTemplate } from './templates.js';
 import type { TmuxClient, TmuxSession } from './tmux/client.js';
@@ -18,6 +20,7 @@ const MAX_PREVIEW_LINE = 240;
 
 export interface SessionServiceOptions {
   templates: () => Template[];
+  sshHosts: SshHostStore;
   workspaceDir: string;
   claudeBoxDir: string;
   claudeHomeDir: string;
@@ -74,6 +77,7 @@ export class SessionService {
       kind,
       project,
       template: s.template,
+      sshHost: s.sshHost,
       createdAt: s.createdAt,
       // For Claude sessions the last hook event is the meaningful activity (the TUI redraws constantly).
       activityAt: kind === 'claude' && state ? state.updatedAt : s.activityAt,
@@ -108,11 +112,19 @@ export class SessionService {
       }
       project = input.project!;
     }
+    let ssh: { name: string; args: string[] } | null = null;
+    if (template.requiresSshHost) {
+      const machine = input.sshHost === undefined ? null : this.opts.sshHosts.get(input.sshHost);
+      if (!machine) throw new HttpError(400, 'invalid_ssh_host', 'Cette machine SSH n’existe pas. Ajoute-la dans les réglages.');
+      ssh = { name: machine.name, args: sshArgs(machine) };
+    } else if (input.sshHost !== undefined) {
+      throw new HttpError(400, 'invalid_ssh_host', 'Ce modèle ne se connecte pas à une machine SSH.');
+    }
     let expanded;
     try {
       expanded = expandTemplate(
         template,
-        { session: input.name, project, claudeBoxDir: this.opts.claudeBoxDir, workspaceDir: this.opts.workspaceDir },
+        { session: input.name, project, claudeBoxDir: this.opts.claudeBoxDir, workspaceDir: this.opts.workspaceDir, ssh: ssh?.args },
         input.flags,
         { model: input.model, effort: input.effort },
       );
@@ -128,6 +140,7 @@ export class SessionService {
     this.tracker.reset(input.name);
     const userOptions: Record<string, string> = { '@kae_kind': template.kind, '@kae_template': template.id };
     if (project) userOptions['@kae_project'] = project;
+    if (ssh) userOptions['@kae_ssh'] = ssh.name;
     try {
       await this.tmux.newSession(input.name, {
         cwd,

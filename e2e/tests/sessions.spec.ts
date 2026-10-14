@@ -161,6 +161,47 @@ test('terminal in a chosen folder: browse, create a folder, open the shell there
   await expect(page.getByText('Session « mon-projet » fermée')).toBeVisible();
 });
 
+test('SSH machine: save it from the new-session sheet, open a terminal on it, manage it in settings', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Nouvelle session (N)' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nouvelle session' });
+  await dialog.getByText('Machine SSH', { exact: true }).click();
+  await expect(dialog.getByText('Aucune machine SSH enregistrée')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Créer la session' })).toBeDisabled();
+
+  // Add the machine without leaving the sheet; a bad address is refused before sending.
+  await dialog.getByRole('button', { name: 'Ajouter' }).click();
+  const form = page.getByRole('dialog', { name: 'Ajouter une machine SSH' });
+  await form.getByLabel('Nom', { exact: true }).fill('Mon VPS');
+  await form.getByLabel('Adresse').fill('-oProxyCommand=x');
+  await expect(form.getByRole('button', { name: 'Ajouter' })).toBeDisabled();
+  await form.getByLabel('Adresse').fill('vps.example.com');
+  await form.getByLabel('Port').fill('2222');
+  await form.getByLabel('Utilisateur (facultatif)').fill('root');
+  await form.getByRole('button', { name: 'Ajouter' }).click();
+
+  await expect(dialog.getByLabel('Machine', { exact: true })).toContainText('Mon VPS — root@vps.example.com:2222');
+  await expect(dialog.getByLabel('Nom', { exact: true })).toHaveValue('mon-vps');
+  await dialog.getByRole('button', { name: 'Créer la session' }).click();
+
+  await expect(page).toHaveURL(/\/s\/mon-vps$/);
+  const rows = page.getByTestId('terminal').locator('.xterm-rows');
+  await expect(rows).toContainText('fake-ssh: -o ServerAliveInterval=30 -p 2222 -l root -- vps.example.com', { timeout: 10_000 });
+  await expect(page.getByText('SSH · Mon VPS').filter({ visible: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Fermer mon-vps' }).click();
+  await expect(page.getByText('Session « mon-vps » fermée')).toBeVisible();
+
+  // Settings lists the machine; deleting asks for a second click.
+  await page.goto('/settings');
+  const row = page.getByTestId('ssh-host-Mon VPS');
+  await expect(row).toContainText('root@vps.example.com:2222');
+  await row.getByRole('button', { name: 'Supprimer Mon VPS' }).click();
+  await row.getByRole('button', { name: 'Supprimer', exact: true }).click();
+  await expect(page.getByText('« Mon VPS » supprimée')).toBeVisible();
+  await expect(row).toHaveCount(0);
+});
+
 test('Shift+Enter sends ESC+CR (newline in Claude Code), Enter stays a plain CR', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Nouvelle session (N)' }).click();

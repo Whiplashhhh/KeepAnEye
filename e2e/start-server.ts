@@ -54,6 +54,14 @@ writeFileSync(eventsFile, '');
 process.env.HOME = path.join(root, 'home');
 mkdirSync(path.join(process.env.HOME, 'documents'), { recursive: true });
 
+// No real ssh in e2e: a stand-in that shows its arguments, so the SSH template can be exercised end to end.
+if (mode === 'e2e') {
+  const bin = path.join(root, 'bin');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(path.join(bin, 'ssh'), '#!/bin/sh\necho "fake-ssh: $*"\nexec cat\n', { mode: 0o755 });
+  process.env.PATH = `${bin}${path.delimiter}${process.env.PATH ?? ''}`;
+}
+
 const origin = `http://localhost:${port}`;
 const config: Config = {
   host: '127.0.0.1',

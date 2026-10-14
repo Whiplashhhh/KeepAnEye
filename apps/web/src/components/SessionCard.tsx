@@ -1,5 +1,5 @@
 import type { SessionInfo } from '@kae/shared';
-import { Bot, SquareTerminal, Users } from 'lucide-react';
+import { Bot, Server, SquareTerminal, Users } from 'lucide-react';
 import { memo } from 'react';
 import { Link } from 'wouter';
 import { timeAgo } from '../lib/format';
@@ -19,7 +19,7 @@ export const SessionCard = memo(function SessionCard({
   const status = session.claude?.status;
   const waiting = status === 'waiting';
   const preview = session.preview.slice(compact ? -2 : -3);
-  const KindIcon = session.kind === 'claude' ? Bot : SquareTerminal;
+  const KindIcon = session.kind === 'claude' ? Bot : session.sshHost ? Server : SquareTerminal;
 
   return (
     <Link
@@ -39,9 +39,9 @@ export const SessionCard = memo(function SessionCard({
           <h3 className="truncate font-mono text-[15px] font-semibold leading-6 text-fg">{session.name}</h3>
           <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-muted">
             <KindIcon className="size-3.5 shrink-0" aria-hidden />
-            <span className="sr-only">{session.kind === 'claude' ? 'Session Claude' : 'Terminal'}</span>
+            <span className="sr-only">{session.kind === 'claude' ? 'Session Claude' : session.sshHost ? 'Terminal SSH' : 'Terminal'}</span>
             <span className="truncate">
-              {session.kind === 'claude' ? (session.project ?? 'Claude') : 'Terminal'}
+              {session.kind === 'claude' ? (session.project ?? 'Claude') : (session.sshHost ?? 'Terminal')}
             </span>
             <span className="text-faint" aria-hidden>
               ·

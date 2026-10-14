@@ -9,6 +9,8 @@ export interface TmuxSession {
   kind: string | null;
   project: string | null;
   template: string | null;
+  /** Name of the saved SSH machine (@kae_ssh), else null. */
+  sshHost: string | null;
   windows: WindowInfo[];
   /** Exit status of the active pane when its process has ended (remain-on-exit), else null. */
   deadStatus: number | null;
@@ -53,6 +55,7 @@ const SESSION_FORMAT = [
   '#{@kae_kind}',
   '#{@kae_project}',
   '#{@kae_template}',
+  '#{@kae_ssh}',
 ].join(SEP);
 
 const WINDOW_FORMAT = [
@@ -113,7 +116,7 @@ export class RealTmuxClient implements TmuxClient {
     const sessions = new Map<string, TmuxSession>();
     for (const line of sessionsOut.split('\n')) {
       if (!line) continue;
-      const [name, created, activity, attached, kind, project, template] = line.split(SEP);
+      const [name, created, activity, attached, kind, project, template, sshHost] = line.split(SEP);
       if (name === undefined) continue;
       sessions.set(name, {
         name,
@@ -123,6 +126,7 @@ export class RealTmuxClient implements TmuxClient {
         kind: kind || null,
         project: project || null,
         template: template || null,
+        sshHost: sshHost || null,
         windows: [],
         deadStatus: null,
       });

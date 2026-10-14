@@ -34,6 +34,7 @@ export class FakeTmuxClient implements TmuxClient {
       kind: opts.userOptions?.['@kae_kind'] ?? null,
       project: opts.userOptions?.['@kae_project'] ?? null,
       template: opts.userOptions?.['@kae_template'] ?? null,
+      sshHost: opts.userOptions?.['@kae_ssh'] ?? null,
       windows: [{ index: 0, name: opts.command[0] ?? 'bash', active: true, command: opts.command[0] ?? 'bash', path: opts.cwd }],
       deadStatus: null,
       lines: [],

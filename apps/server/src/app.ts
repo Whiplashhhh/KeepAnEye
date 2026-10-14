@@ -14,6 +14,7 @@ import {
   pushSubscriptionSchema,
   SESSION_NAME_RE,
   secondFactorSchema,
+  sshHostInputSchema,
 } from '@kae/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Fastify, { LogController } from 'fastify';
@@ -47,6 +48,7 @@ import type { PushSender } from './push/service.js';
 import { PushService } from './push/service.js';
 import { LiveHub } from './realtime/hub.js';
 import { SessionService } from './sessions.js';
+import { SshHostStore } from './ssh.js';
 import type { Template } from './templates.js';
 import { loadTemplates, toTemplateInfo } from './templates.js';
 import { bridgeTerminal } from './terminal.js';
@@ -104,8 +106,10 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   const push = new PushService(db, config.vapidSubject, deps.pushSender);
   let templates = deps.templates ?? loadTemplates(config.templatesFile);
   const getTemplates = () => templates;
+  const sshHosts = new SshHostStore(db);
   const sessionService = new SessionService(tmux, tracker, {
     templates: getTemplates,
+    sshHosts,
     workspaceDir: config.workspaceDir,
     claudeBoxDir: config.claudeBoxDir,
     claudeHomeDir: config.claudeHomeDir,
@@ -262,6 +266,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
       model: input.model ?? null,
       effort: input.effort ?? null,
       cwd: input.cwd ?? null,
+      sshHost: input.sshHost ? (sshHosts.get(input.sshHost)?.name ?? null) : null,
     });
     await hub.refreshSessions();
     return res;
@@ -314,6 +319,31 @@ export async function buildApp(deps: AppDeps): Promise<App> {
       fastify.log.warn((e as Error).message);
     }
     return { templates: templates.map(toTemplateInfo) };
+  });
+
+  // SSH machines: saved targets for terminals opened on other servers.
+  const idParam = z.object({ id: z.coerce.number().int().positive() });
+
+  fastify.get('/api/ssh-hosts', async () => ({ hosts: sshHosts.list() }));
+
+  fastify.post('/api/ssh-hosts', async (req) => {
+    const host = sshHosts.create(sshHostInputSchema.parse(req.body));
+    audit.record('ssh_host.created', ctxOf(req), { name: host.name, host: host.host, port: host.port, user: host.user });
+    return { host };
+  });
+
+  fastify.put('/api/ssh-hosts/:id', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const host = sshHosts.update(id, sshHostInputSchema.parse(req.body));
+    audit.record('ssh_host.updated', ctxOf(req), { name: host.name, host: host.host, port: host.port, user: host.user });
+    return { host };
+  });
+
+  fastify.delete('/api/ssh-hosts/:id', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const host = sshHosts.delete(id);
+    audit.record('ssh_host.deleted', ctxOf(req), { name: host.name, host: host.host });
+    return { ok: true };
   });
 
   fastify.get('/api/projects', async () => ({ projects: await listProjects(config.workspaceDir) }));

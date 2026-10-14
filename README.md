@@ -23,7 +23,8 @@ Toutes les captures (mobile et bureau, sombre et clair) sont dans [`docs/screens
 - **Statut Claude** par session : *T'attend* (ambre), *Travaille* (bleu, point qui pulse), *Terminé* (vert), *Erreur* (rouge), *Inactif* (gris) — toujours avec une icône et un libellé.
 - **Terminal en direct** dans le navigateur (xterm.js ↔ WebSocket ↔ `tmux attach` dans un pty). Plusieurs appareils peuvent regarder la même session ; fermer l'onglet détache sans tuer la session. Reconnexion automatique, liens cliquables, copier-coller.
 - **Mobile d'abord** : terminal plein écran qui se redimensionne au-dessus du clavier, barre de touches `Esc` `Tab` `Ctrl` `^C` `↑` `↓` `⏎` `←` `→` et coller.
-- **Créer / fermer** des sessions à partir de modèles (Terminal, Claude dans claude-box, et les tiens).
+- **Créer / fermer** des sessions à partir de modèles (Terminal, Machine SSH, Claude dans claude-box, et les tiens).
+- **Machines SSH** : enregistre un VPS (ou tout autre serveur) dans les réglages, puis ouvre un terminal dessus avec le modèle « Machine SSH ». Voir [Machines SSH](#machines-ssh).
 - **Cloner un repo** au moment de lancer Claude : tape `propriétaire/repo` (ou colle l'URL GitHub) au lieu de choisir un projet ; l'appli lance `gh repo clone` dans claude-box (utilisateur `claude`, donc avec son authentification `gh`), le dossier arrive dans `~/claude-box/workspace` et rejoint la liste des projets. Si le dossier existe déjà, il est réutilisé tel quel.
 - **Suivi de Claude Code** par des hooks qui écrivent dans un fichier (claude-box ne peut pas joindre l'appli), et **timeline** lisible du transcript : messages, outils, fichiers modifiés.
 - **Notifications Web Push** quand une session t'attend, a terminé ou est en erreur ; toucher la notification ouvre la session. Réglages par type et plage « ne pas déranger ».
@@ -251,9 +252,20 @@ Les modèles sont dans [`config/templates.json`](config/templates.json) (ou le f
 | `{session}` | nom de la session (validé) |
 | `{project}` | projet choisi (vérifié dans `~/claude-box/workspace`) |
 | `{claudeBoxDir}`, `{workspaceDir}`, `{home}` | chemins configurés |
+| `"{ssh}"` | arguments `ssh` de la machine choisie (modèles `requiresSshHost`) |
 | `"{flags}"` | arguments du modèle et du niveau de réflexion choisis, puis des options cochées (par ex. `--dangerously-skip-permissions` pour « Autonome ») |
 
 Avec `"chooseCwd": true` (c'est le cas de « Terminal »), la feuille propose « Dossier personnel » ou « Choisir un dossier » : un explorateur parcourt les dossiers de l'hôte (dossiers cachés masqués par défaut) et permet d'en créer un nouveau sur place. Le dossier affiché devient le dossier de départ du shell ; le serveur vérifie qu'il existe. Sous Docker, seuls les dossiers montés dans le conteneur sont visibles : `compose.yml` monte ton dossier personnel pour ça. Chaque création de dossier est inscrite au journal d'audit.
+
+## Machines SSH
+
+Dans **Réglages → Machines SSH** (ou « Ajouter » dans la feuille « Nouvelle session » avec le modèle « Machine SSH »), enregistre un serveur : un nom, l'adresse (nom d'hôte, IP ou alias de `~/.ssh/config`), le port, et éventuellement l'utilisateur et le chemin d'une clé privée. La session est alors un `ssh` lancé dans tmux sur l'hôte : elle survit à la fermeture de l'onglet comme les autres, et la machine apparaît sur la carte (« VPS »).
+
+- **Aucun secret n'est stocké.** L'authentification est celle de `ssh` sur l'hôte : `ssh-agent`, clés de `~/.ssh`, ou le mot de passe que tu tapes dans le terminal. La confirmation de l'empreinte d'une nouvelle machine (« yes/no ») s'y répond aussi. Pour une connexion par clé, copie d'abord ta clé publique sur le serveur distant (`ssh-copy-id`, depuis l'hôte).
+- Les valeurs sont validées (l'adresse ne peut pas commencer par `-`, l'utilisateur et la clé non plus) et passées à `ssh` en tableau d'arguments après `--` : jamais de shell. Les ajouts, modifications et suppressions de machines sont au journal d'audit.
+- Si la connexion échoue (code de sortie non nul), le terminal reste ouvert avec le message d'erreur ; un `exit` normal ferme la session.
+- Sous Docker, `ssh` est lancé par le tmux de l'**hôte** : il utilise les clés et le `known_hosts` de l'hôte, rien à monter dans le conteneur.
+- Dans `templates.json`, le modèle utilise `"requiresSshHost": true` et le jeton `"{ssh}"`, qui se remplace par les arguments de la machine choisie (`-p`, `-l`, `-i`, `--`, adresse).
 
 Un modèle peut déclarer des listes `models` et `efforts` (chaque entrée : `id`, `label`, `args`). La feuille « Nouvelle session » les affiche comme des choix « Modèle IA » et « Capacité de réflexion » (par défaut : aucun argument, donc les réglages habituels de Claude Code). Le serveur n'accepte que les identifiants déclarés.
 

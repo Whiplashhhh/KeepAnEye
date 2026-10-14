@@ -19,7 +19,9 @@ const templateSchema = z.object({
   description: z.string().max(200).default(''),
   kind: z.enum(SESSION_KINDS),
   requiresProject: z.boolean().default(false),
-  /** argv with placeholders: {session} {project} {home} {claudeBoxDir} {workspaceDir}; "{flags}" alone expands to the selected flags' args. Empty = default shell. */
+  /** Connect to a saved SSH machine picked at creation; "{ssh}" in the command expands to its ssh arguments. */
+  requiresSshHost: z.boolean().default(false),
+  /** argv with placeholders: {session} {project} {home} {claudeBoxDir} {workspaceDir}; "{flags}" alone expands to the selected flags' args, "{ssh}" alone to the chosen SSH machine's arguments. Empty = default shell. */
   command: z.array(z.string().max(500)).max(64).default([]),
   /** Keep the session open with its output if the command fails (e.g. claude-box is down). */
   keepOnFailure: z.boolean().default(false),
@@ -65,6 +67,7 @@ export function toTemplateInfo(t: Template): TemplateInfo {
     description: t.description,
     kind: t.kind,
     requiresProject: t.requiresProject,
+    requiresSshHost: t.requiresSshHost,
     flags: t.flags.map(({ id, label, description }) => (description ? { id, label, description } : { id, label })),
     models: t.models.map(toChoiceInfo),
     efforts: t.efforts.map(toChoiceInfo),
@@ -82,6 +85,8 @@ export interface ExpandContext {
   claudeBoxDir: string;
   workspaceDir: string;
   home?: string;
+  /** ssh arguments of the chosen machine, expanded where the command has "{ssh}". */
+  ssh?: string[];
 }
 
 /** Values are validated before reaching here (session regex, project checked against the workspace). */
@@ -130,6 +135,7 @@ export function expandTemplate(
   const command: string[] = [];
   for (const part of t.command) {
     if (part === '{flags}') command.push(...flagArgs.map((a) => substitute(a, ctx)));
+    else if (part === '{ssh}') command.push(...(ctx.ssh ?? []));
     else command.push(substitute(part, ctx));
   }
   return { command, cwd: substitute(t.cwd, ctx) };

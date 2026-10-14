@@ -66,6 +66,8 @@ export interface SessionInfo {
   attached: number;
   windows: WindowInfo[];
   preview: string[];
+  /** Name of the saved SSH machine this terminal is connected to, if any. */
+  sshHost: string | null;
   /** Whether the name passes validation (sessions created outside the app may not). */
   manageable: boolean;
   claude: ClaudeInfo | null;
@@ -106,6 +108,8 @@ export interface TemplateInfo {
   description: string;
   kind: SessionKind;
   requiresProject: boolean;
+  /** The session connects to one of the saved SSH machines, picked at creation. */
+  requiresSshHost: boolean;
   flags: TemplateFlag[];
   /** Models the user can pick (none picked = the CLI default). */
   models: TemplateChoice[];
@@ -198,10 +202,56 @@ export const createSessionSchema = z.object({
   /** Id of one of the template's models / efforts; omitted = the CLI default. */
   model: z.string().max(40).optional(),
   effort: z.string().max(40).optional(),
+  /** Id of a saved SSH machine, for templates that connect to one. */
+  sshHost: z.number().int().positive().optional(),
   /** Absolute working directory, for templates that let the user choose it; omitted = the template's cwd. */
   cwd: z.string().min(1).max(4096).optional(),
 });
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;
+
+// ---------- SSH machines ----------
+
+/** Hostname, IPv4 or ~/.ssh/config alias (never starts with "-": it would be read as an ssh option). */
+export const SSH_HOSTNAME_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,251}[A-Za-z0-9])?$/;
+const SSH_IPV6_RE = /^(?=.*:)[0-9A-Fa-f:]{2,45}$/;
+export const SSH_USER_RE = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$/;
+export const SSH_LABEL_RE = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,39}$/u;
+
+export const sshHostInputSchema = z.object({
+  /** Name shown in the app (unique). */
+  name: z.string().trim().regex(SSH_LABEL_RE, 'Nom invalide : lettres, chiffres, espaces, . - _ (40 max).'),
+  host: z
+    .string()
+    .trim()
+    .refine((h) => SSH_HOSTNAME_RE.test(h) || SSH_IPV6_RE.test(h), 'Adresse invalide : nom d’hôte, IP ou alias de ~/.ssh/config.'),
+  port: z.number().int().min(1).max(65535).default(22),
+  /** Remote user; omitted = ssh's own default (current user, or ~/.ssh/config). */
+  user: z
+    .string()
+    .trim()
+    .regex(SSH_USER_RE, 'Utilisateur invalide.')
+    .nullish()
+    .transform((u) => u ?? null),
+  /** Absolute path of a private key on the app's host; omitted = ssh's defaults (agent, ~/.ssh/id_*). */
+  identityFile: z
+    .string()
+    .trim()
+    .max(4096)
+    .refine((p) => p.startsWith('/') && !p.includes('\0'), 'Chemin invalide : il doit être absolu.')
+    .nullish()
+    .transform((p) => p || null),
+});
+export type SshHostInput = z.infer<typeof sshHostInputSchema>;
+
+export interface SshHost {
+  id: number;
+  name: string;
+  host: string;
+  port: number;
+  user: string | null;
+  identityFile: string | null;
+  createdAt: number;
+}
 
 export const listDirQuerySchema = z.object({ path: z.string().min(1).max(4096).optional() });
 

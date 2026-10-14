@@ -10,6 +10,16 @@
       "chooseCwd": true
     },
     {
+      "id": "ssh",
+      "label": "Machine SSH",
+      "description": "Un terminal sur un autre serveur (VPS…), configuré dans les réglages",
+      "kind": "terminal",
+      "requiresSshHost": true,
+      "keepOnFailure": true,
+      "command": ["ssh", "-o", "ServerAliveInterval=30", "{ssh}"],
+      "cwd": "{home}"
+    },
+    {
       "id": "claude",
       "label": "Claude dans claude-box",
       "description": "Claude Code isolé dans le conteneur, sur un projet",

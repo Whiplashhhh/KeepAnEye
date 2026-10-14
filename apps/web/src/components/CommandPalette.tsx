@@ -57,7 +57,7 @@ export function CommandPalette({
     const list: Command[] = (sessions ?? []).map((s) => ({
       id: `s:${s.name}`,
       label: s.name,
-      hint: s.claude ? STATUS[s.claude.status].label : (s.project ?? 'Terminal'),
+      hint: s.claude ? STATUS[s.claude.status].label : (s.project ?? s.sshHost ?? 'Terminal'),
       icon: s.kind === 'claude' ? Bot : SquareTerminal,
       iconClass: s.claude ? STATUS[s.claude.status].text : undefined,
       group: 'Sessions',

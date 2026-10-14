@@ -1,9 +1,10 @@
-import type { NotificationSettings } from '@kae/shared';
-import { BellRing, ChevronRight, Keyboard, LogOut, Monitor, Moon, ScrollText, ShieldOff, Sun } from 'lucide-react';
+import type { NotificationSettings, SshHost } from '@kae/shared';
+import { BellRing, ChevronRight, Keyboard, LogOut, Monitor, Moon, Pencil, Plus, ScrollText, Server, ShieldOff, Sun, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
-import { Button, Segmented, Skeleton, Switch } from '../components/ui';
+import { SshHostSheet, sshTarget } from '../components/SshHostSheet';
+import { Button, IconButton, Segmented, Skeleton, Switch } from '../components/ui';
 import { setViewportProbe, viewportProbeEnabled } from '../components/ViewportProbe';
 import { api } from '../lib/api';
 import { currentSubscription, disablePush, enablePush, pushSupported } from '../lib/push';
@@ -48,6 +49,10 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
   const [pushBusy, setPushBusy] = useState(false);
   const [logoutAllBusy, setLogoutAllBusy] = useState(false);
   const [probe, setProbe] = useState(viewportProbeEnabled);
+  const [machines, setMachines] = useState<SshHost[] | null>(null);
+  const [editing, setEditing] = useState<SshHost | null>(null);
+  const [machineSheet, setMachineSheet] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
   useEffect(() => {
     api<{ settings: NotificationSettings; devices: number }>('/api/settings/notifications')
@@ -56,6 +61,9 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
         setDevices(r.devices);
       })
       .catch((e: Error) => toast({ kind: 'error', title: 'Réglages indisponibles', detail: e.message }));
+    api<{ hosts: SshHost[] }>('/api/ssh-hosts')
+      .then((r) => setMachines(r.hosts))
+      .catch((e: Error) => toast({ kind: 'error', title: 'Machines SSH indisponibles', detail: e.message }));
     void currentSubscription()
       .then((s) => setSubscribed(!!s))
       .catch(() => setSubscribed(false));
@@ -103,6 +111,29 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
       );
     } catch (e) {
       toast({ kind: 'error', title: 'Échec de l’envoi', detail: (e as Error).message });
+    }
+  };
+
+  const openMachine = (m: SshHost | null) => {
+    setEditing(m);
+    setMachineSheet(true);
+  };
+
+  const saved = (m: SshHost) =>
+    setMachines((cur) => [...(cur ?? []).filter((x) => x.id !== m.id), m].sort((a, b) => a.name.localeCompare(b.name)));
+
+  const removeMachine = async (m: SshHost) => {
+    if (confirmDelete !== m.id) {
+      setConfirmDelete(m.id);
+      return;
+    }
+    try {
+      await api(`/api/ssh-hosts/${m.id}`, { method: 'DELETE' });
+      setMachines((cur) => (cur ?? []).filter((x) => x.id !== m.id));
+      setConfirmDelete(null);
+      toast({ kind: 'success', title: `« ${m.name} » supprimée`, detail: 'Les sessions déjà ouvertes continuent.' });
+    } catch (e) {
+      toast({ kind: 'error', title: 'Suppression impossible', detail: (e as Error).message });
     }
   };
 
@@ -219,6 +250,57 @@ export function SettingsPage({ onLogout, onShortcuts }: { onLogout: () => void; 
           </div>
         )}
       </Section>
+
+      <Section
+        title="Machines SSH"
+        description="Serveurs distants (un VPS, un Raspberry Pi…) sur lesquels ouvrir un terminal avec le modèle « Machine SSH »."
+      >
+        {machines === null ? (
+          <div className="p-4">
+            <Skeleton className="h-10" />
+          </div>
+        ) : (
+          machines.map((m) => (
+            <div key={m.id} className="flex min-h-16 items-center justify-between gap-3 px-4 py-3" data-testid={`ssh-host-${m.name}`}>
+              <div className="flex min-w-0 items-center gap-3">
+                <Server className="size-4 shrink-0 text-muted" aria-hidden />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-fg">{m.name}</p>
+                  <p className="truncate font-mono text-[13px] text-muted">{sshTarget(m)}</p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center">
+                {confirmDelete === m.id ? (
+                  <>
+                    <Button variant="ghost" onClick={() => setConfirmDelete(null)}>
+                      Garder
+                    </Button>
+                    <Button variant="danger" onClick={() => void removeMachine(m)}>
+                      Supprimer
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <IconButton label={`Modifier ${m.name}`} onClick={() => openMachine(m)}>
+                      <Pencil className="size-4" />
+                    </IconButton>
+                    <IconButton label={`Supprimer ${m.name}`} onClick={() => void removeMachine(m)}>
+                      <Trash2 className="size-4" />
+                    </IconButton>
+                  </>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+        <Row label="Ajouter une machine" hint={machines?.length === 0 ? 'Aucune machine pour l’instant.' : undefined}>
+          <Button onClick={() => openMachine(null)}>
+            <Plus className="size-4" aria-hidden />
+            Ajouter
+          </Button>
+        </Row>
+      </Section>
+      <SshHostSheet open={machineSheet} onOpenChange={setMachineSheet} host={editing} onSaved={saved} />
 
       <Section title="Sécurité">
         <Link href="/settings/audit" className="flex min-h-16 items-center justify-between gap-4 px-4 py-3 hover:bg-surface-2/60">

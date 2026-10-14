@@ -292,6 +292,86 @@ describe('sessions API', () => {
     expect(tmux.created).toHaveLength(1);
   });
 
+  describe('SSH machines', () => {
+    const send = (method: 'PUT' | 'DELETE', url: string, sid: string, payload?: object) =>
+      app.fastify.inject({ method, url, payload, cookies: { kae_sid: sid }, headers: { origin: ORIGIN } });
+
+    it('needs a session and an allowed origin', async () => {
+      const sid = await login();
+      expect((await app.fastify.inject({ url: '/api/ssh-hosts' })).statusCode).toBe(401);
+      expect((await post('/api/ssh-hosts', { name: 'vps', host: 'vps.example.com' }, { kae_sid: sid }, null)).statusCode).toBe(403);
+    });
+
+    it('saves, lists, edits and deletes machines, and audits each change', async () => {
+      const sid = await login();
+      const created = await post('/api/ssh-hosts', { name: 'VPS', host: 'vps.example.com', user: 'root', port: 2222 }, { kae_sid: sid });
+      expect(created.statusCode).toBe(200);
+      const host = created.json().host;
+      expect(host).toMatchObject({ name: 'VPS', host: 'vps.example.com', port: 2222, user: 'root', identityFile: null });
+      expect((await post('/api/ssh-hosts', { name: 'vps', host: 'other.example.com' }, { kae_sid: sid })).statusCode).toBe(409);
+
+      const edited = await send('PUT', `/api/ssh-hosts/${host.id}`, sid, { name: 'VPS', host: '203.0.113.7', identityFile: '/home/me/.ssh/id_vps' });
+      expect(edited.json().host).toMatchObject({ host: '203.0.113.7', port: 22, user: null, identityFile: '/home/me/.ssh/id_vps' });
+      expect((await send('PUT', '/api/ssh-hosts/999', sid, { name: 'x', host: 'x.example.com' })).statusCode).toBe(404);
+
+      const list = await app.fastify.inject({ url: '/api/ssh-hosts', cookies: { kae_sid: sid } });
+      expect(list.json().hosts).toHaveLength(1);
+      expect((await send('DELETE', `/api/ssh-hosts/${host.id}`, sid)).statusCode).toBe(200);
+      expect((await send('DELETE', `/api/ssh-hosts/${host.id}`, sid)).statusCode).toBe(404);
+      expect(app.audit.list().map((e) => e.event)).toEqual(expect.arrayContaining(['ssh_host.created', 'ssh_host.updated', 'ssh_host.deleted']));
+    });
+
+    it('refuses values that ssh could read as options or that break out of the argument', async () => {
+      const sid = await login();
+      const bad = [
+        { name: 'a', host: '-oProxyCommand=touch/tmp/pwned' },
+        { name: 'a', host: 'host name' },
+        { name: 'a', host: 'host;reboot' },
+        { name: 'a', host: 'ok.example.com', user: '-oProxyCommand=x' },
+        { name: 'a', host: 'ok.example.com', user: 'a b' },
+        { name: 'a', host: 'ok.example.com', identityFile: '-oProxyCommand=x' },
+        { name: 'a', host: 'ok.example.com', identityFile: 'relative/key' },
+        { name: 'a', host: 'ok.example.com', port: 0 },
+        { name: 'a', host: 'ok.example.com', port: 70000 },
+        { name: '', host: 'ok.example.com' },
+        { name: '<b>', host: 'ok.example.com' },
+      ];
+      for (const b of bad) expect((await post('/api/ssh-hosts', b, { kae_sid: sid })).statusCode, JSON.stringify(b)).toBe(400);
+      expect((await app.fastify.inject({ url: '/api/ssh-hosts', cookies: { kae_sid: sid } })).json().hosts).toEqual([]);
+    });
+
+    it('opens a terminal on the machine with the exact ssh command', async () => {
+      const sid = await login();
+      const { id } = (await post('/api/ssh-hosts', { name: 'VPS', host: 'vps.example.com', user: 'root', port: 2222, identityFile: '/home/me/.ssh/id_vps' }, { kae_sid: sid })).json().host;
+      const r = await post('/api/sessions', { name: 'vps', template: 'ssh', sshHost: id }, { kae_sid: sid });
+      expect(r.statusCode).toBe(200);
+      const { opts } = tmux.created[0]!;
+      expect(opts.command).toEqual([
+        'ssh', '-o', 'ServerAliveInterval=30', '-p', '2222', '-l', 'root', '-i', '/home/me/.ssh/id_vps', '-o', 'IdentitiesOnly=yes', '--', 'vps.example.com',
+      ]);
+      expect(opts.userOptions).toMatchObject({ '@kae_kind': 'terminal', '@kae_template': 'ssh', '@kae_ssh': 'VPS' });
+      expect(opts.keepOnFailure).toBe(true);
+      const sessions = (await app.fastify.inject({ url: '/api/sessions', cookies: { kae_sid: sid } })).json().sessions;
+      expect(sessions[0]).toMatchObject({ name: 'vps', kind: 'terminal', sshHost: 'VPS' });
+      expect(app.audit.list().find((e) => e.event === 'session.created')?.detail).toMatchObject({ sshHost: 'VPS' });
+    });
+
+    it('keeps the command minimal for a plain host and rejects wrong machine choices', async () => {
+      const sid = await login();
+      const { id } = (await post('/api/ssh-hosts', { name: 'pi', host: 'pi.local' }, { kae_sid: sid })).json().host;
+      expect((await post('/api/sessions', { name: 'pi', template: 'ssh', sshHost: id }, { kae_sid: sid })).statusCode).toBe(200);
+      expect(tmux.created[0]!.opts.command).toEqual(['ssh', '-o', 'ServerAliveInterval=30', '--', 'pi.local']);
+      const cases = [
+        { name: 'a', template: 'ssh' },
+        { name: 'b', template: 'ssh', sshHost: 999 },
+        { name: 'c', template: 'terminal', sshHost: id },
+        { name: 'd', template: 'claude', project: 'webapp', sshHost: id },
+      ];
+      for (const c of cases) expect((await post('/api/sessions', c, { kae_sid: sid })).statusCode, JSON.stringify(c)).toBe(400);
+      expect(tmux.created).toHaveLength(1);
+    });
+  });
+
   it('browses folders and creates new ones for the folder picker', async () => {
     const sid = await login();
     const ls = (p: string) => app.fastify.inject({ url: `/api/fs?path=${encodeURIComponent(p)}`, cookies: { kae_sid: sid } });
@@ -393,7 +473,7 @@ describe('sessions API', () => {
     const p = (await app.fastify.inject({ url: '/api/projects', cookies: { kae_sid: sid } })).json();
     expect(p.projects).toEqual(['api', 'webapp']);
     const t = (await app.fastify.inject({ url: '/api/templates', cookies: { kae_sid: sid } })).json();
-    expect(t.templates.map((x: { id: string }) => x.id)).toEqual(['terminal', 'claude']);
+    expect(t.templates.map((x: { id: string }) => x.id)).toEqual(['terminal', 'ssh', 'claude']);
     expect(JSON.stringify(t)).not.toContain('docker'); // commands stay server-side
   });
 
