@@ -154,7 +154,7 @@ export class SessionService {
         throw new HttpError(
           503,
           'tmux_not_running',
-          'Le serveur tmux de l’hôte ne tourne pas. Lance « systemctl --user start tmux-server » sur le serveur.',
+          'Le serveur tmux de l’hôte ne tourne pas. Lance « systemctl --user restart tmux-server » sur le serveur.',
         );
       }
       throw e;

@@ -27,6 +27,10 @@ mkdir -p "$HOME/.config/systemd/user"
 cp deploy/tmux-server.service "$HOME/.config/systemd/user/"
 systemctl --user daemon-reload
 systemctl --user enable --now tmux-server.service
+# Ancienne version du service (oneshot) ou serveur mort : « active » sans processus, on le relance.
+if [ "$(systemctl --user show -p MainPID --value tmux-server.service)" = "0" ]; then
+  systemctl --user restart tmux-server.service
+fi
 echo "✓ tmux-server.service activé (socket : /tmp/tmux-$(id -u)/default)"
 
 if ! loginctl show-user "$USER" -p Linger 2>/dev/null | grep -q yes; then

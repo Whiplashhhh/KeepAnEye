@@ -76,7 +76,7 @@ nano .env                               # KAE_ALLOWED_ORIGINS=https://<machine>.
 
 - il crée `.env` et y écrit ton UID/GID, ton dossier personnel, le GID du groupe `docker` et ton fuseau horaire ;
 - il crée `data/` ;
-- il active `tmux-server.service`, un serveur tmux permanent sur l'hôte (option `exit-empty off`). Le conteneur ne démarre jamais tmux lui-même : sinon les sessions vivraient dans le conteneur et mourraient avec lui. Tes `tmux attach` habituels se rattachent au même serveur.
+- il active `tmux-server.service`, un serveur tmux permanent sur l'hôte, surveillé par systemd (relancé automatiquement s'il plante). Le conteneur ne démarre jamais tmux lui-même : sinon les sessions vivraient dans le conteneur et mourraient avec lui. Tes `tmux attach` habituels se rattachent au même serveur.
 
 ### 3. Démarrer et créer le compte
 
@@ -335,8 +335,8 @@ Pour restaurer : arrête le service, remplace `data/keep-an-eye.db` par la sauve
 | Pas de notifications | Appli installée (obligatoire sur iOS), notifications autorisées pour le site, « Activer » cliqué sur cet appareil, plage « ne pas déranger » désactivée. Bouton **Envoyer** pour tester. |
 | Page blanche après une mise à jour | `npm run build` puis redémarre le service (les fichiers statiques sont indexés au démarrage). Avec Docker, `docker compose up -d --build` s'en charge. |
 | Journaux | `journalctl --user -u keep-an-eye -f` (Docker : `docker compose logs -f`) |
-| Docker : le conteneur ne démarre pas, « bind source path does not exist » | Le socket tmux `/tmp/tmux-<uid>` ou `~/claude-box` est absent. Lance `systemctl --user start tmux-server` (ou `./scripts/docker-init.sh`), puis `docker compose up -d`. |
-| Docker : « Le serveur tmux de l'hôte ne tourne pas » | `systemctl --user enable --now tmux-server` et `sudo loginctl enable-linger $USER`. |
+| Docker : le conteneur ne démarre pas, « bind source path does not exist » | Le socket tmux `/tmp/tmux-<uid>` ou `~/claude-box` est absent. Lance `systemctl --user restart tmux-server` (ou `./scripts/docker-init.sh`), puis `docker compose up -d`. |
+| Docker : « Le serveur tmux de l'hôte ne tourne pas » | `systemctl --user enable tmux-server`, `systemctl --user restart tmux-server` et `sudo loginctl enable-linger $USER`. Si tmux a planté, ses sessions sont perdues (`journalctl --user -u tmux-server`). |
 | Docker : « protocol version mismatch » dans les journaux | Le tmux de l'hôte est trop ancien ou trop récent par rapport à celui de l'image (Debian 12, tmux 3.3). Tout tmux 3.x convient. |
 | Docker : claude-box en gris | `DOCKER_GID` dans `.env` doit être le GID du groupe `docker` (`getent group docker`), puis `docker compose up -d`. |
 

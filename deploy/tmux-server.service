@@ -6,12 +6,13 @@
 Description=Serveur tmux permanent (Keep An Eye)
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-# exit-empty off : le serveur reste en vie même sans aucune session.
-ExecStart=/usr/bin/tmux start-server \; set-option -g exit-empty off
-# Arrêter ce service ne tue pas tmux ni tes sessions.
-KillMode=process
+Type=simple
+# -D : le serveur reste au premier plan, systemd le surveille (et -D coupe exit-empty, il vit
+# même sans aucune session). S'il plante, systemd le relance — les sessions en cours sont perdues.
+ExecStart=/usr/bin/tmux -D
+Restart=on-failure
+RestartSec=2
+# Attention : arrêter ou redémarrer ce service tue tmux et toutes les sessions.
 
 [Install]
 WantedBy=default.target
