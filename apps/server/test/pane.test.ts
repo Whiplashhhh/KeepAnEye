@@ -20,8 +20,19 @@ describe('readPane', () => {
     expect(readPane(['> ', '? for shortcuts'])).toEqual({ busy: false, waiting: null });
   });
 
+  it('sees the spinner on a narrow (phone) terminal', () => {
+    const footer = ['╭──────────╮', '│ >        │', '╰──────────╯', '⏵⏵ bypass', 'permissions on', '(shift+tab to', 'cycle)'];
+    expect(readPane(['✻ Thinking… (3s)', ...footer]).busy).toBe(true);
+    expect(readPane(['✶ Cogitating…', ...footer]).busy).toBe(true);
+    expect(readPane(['✻ Thinking… (3s · esc to', 'interrupt)', ...footer]).busy).toBe(true);
+    const todos = ['✳ Running… (12s · ↑ 1.2k', 'tokens)', '  ⎿  ☒ Lire le code', '     ☐ Corriger le', '       bogue', '     ☐ Ajouter un', '       test'];
+    expect(readPane([...todos, ...footer, '', ...footer]).busy).toBe(true);
+    expect(readPane(['✻ Worked for 1m 3s', ...footer]).busy).toBe(false);
+    expect(readPane(['- Une liste… et puis', ...footer]).busy).toBe(false);
+  });
+
   it('ignores old scrollback', () => {
-    const old = ['esc to interrupt', ...Array.from({ length: 20 }, (_, i) => `line ${i}`)];
+    const old = ['esc to interrupt', ...Array.from({ length: 30 }, (_, i) => `line ${i}`)];
     expect(readPane(old).busy).toBe(false);
   });
 });
