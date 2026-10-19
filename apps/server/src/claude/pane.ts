@@ -12,8 +12,12 @@ import type { ClaudeTracker } from './tracker.js';
  * arrives for a session, the pane is no longer consulted for it.
  */
 
-const TAIL_LINES = 14;
+// Generous: on a narrow (phone) terminal the prompt box, footer and todo list wrap and push the spinner up.
+const TAIL_LINES = 24;
 const BUSY = /esc to interrupt/i;
+// The spinner line itself ("✻ Thinking… (3s · esc to interrupt)"): on a narrow terminal Claude Code drops the
+// "esc to interrupt" hint, so the glyph + "Verb…" is what remains. The finished line ("✻ Worked for 3s") has no "…".
+const SPINNER = /^\s*[·✢✳✶✻✽*]\s+\S[^…]{0,40}…(?:\s|\(|$)/u;
 // Choice dialogs (permissions, questions): a numbered list with a ❯ cursor on one option, an editable
 // "Type something" option, and an "Esc to cancel" footer. The first option is not always "Yes".
 const OPTION = /^[\s│┃]*[❯>]?\s*\d+\.\s+\S/;
@@ -30,7 +34,8 @@ export interface PaneReading {
 
 export function readPane(lines: string[]): PaneReading {
   const tail = lines.filter((l) => l.trim() !== '').slice(-TAIL_LINES);
-  const busy = tail.some((l) => BUSY.test(l));
+  // The hint may also be wrapped over two lines ("esc to" / "interrupt)").
+  const busy = tail.some((l) => SPINNER.test(l)) || BUSY.test(tail.join(' ').replace(/\s+/g, ' '));
   if (busy) return { busy: true, waiting: null };
   const options = tail.filter((l) => OPTION.test(l)).length;
   const dialog =
