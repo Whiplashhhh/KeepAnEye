@@ -1,7 +1,8 @@
-import { ArrowLeft, Bot, ScrollText, SearchX, Server, SquareTerminal, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bot, Pencil, ScrollText, SearchX, Server, SquareTerminal, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import { CloseSessionDialog } from '../components/CloseSession';
+import { RenameSessionDialog } from '../components/RenameSession';
 import { Keybar } from '../components/Keybar';
 import type { TerminalHandle } from '../components/Terminal';
 import { Terminal } from '../components/Terminal';
@@ -53,6 +54,7 @@ export function SessionView({ name }: { name: string }) {
   const session = sessions?.find((s) => s.name === name) ?? null;
   const [tab, setTab] = useState<'terminal' | 'timeline'>('terminal');
   const [closing, setClosing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const termRef = useRef<TerminalHandle>(null);
   const desktop = useIsDesktop();
   const coarse = useCoarsePointer();
@@ -164,6 +166,15 @@ export function SessionView({ name }: { name: string }) {
         )}
         {session?.manageable && (
           <>
+            <IconButton label="Renommer la session" className="lg:hidden" onClick={() => setRenaming(true)}>
+              <Pencil className="size-5" />
+            </IconButton>
+            <span className="hidden lg:block">
+              <Button variant="ghost" onClick={() => setRenaming(true)}>
+                <Pencil className="size-4" aria-hidden />
+                Renommer
+              </Button>
+            </span>
             <IconButton label="Fermer la session" className="lg:hidden" onClick={() => setClosing(true)}>
               <Trash2 className="size-5" />
             </IconButton>
@@ -209,6 +220,7 @@ export function SessionView({ name }: { name: string }) {
         </div>
       )}
 
+      <RenameSessionDialog session={session} open={renaming} onOpenChange={setRenaming} />
       <CloseSessionDialog session={session} open={closing} onOpenChange={setClosing} />
     </div>
   );

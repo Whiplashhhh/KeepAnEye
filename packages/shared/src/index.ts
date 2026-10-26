@@ -207,6 +207,8 @@ export const createSessionSchema = z.object({
   /** Absolute working directory, for templates that let the user choose it; omitted = the template's cwd. */
   cwd: z.string().min(1).max(4096).optional(),
 });
+export const renameSessionSchema = z.object({ name: sessionNameSchema });
+
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;
 
 // ---------- SSH machines ----------

@@ -7,6 +7,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import {
   createSessionSchema,
+  renameSessionSchema,
   listDirQuerySchema,
   makeDirSchema,
   notificationSettingsSchema,
@@ -119,8 +120,9 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   const hostStats = new HostStats(deps.containerProbe, undefined, config.hostLabel);
   const hub = new LiveHub(sessionService, hostStats);
   const watcher = new EventsWatcher(db, { file: config.eventsFile }, (ev) => {
-    markHooked(db, ev.session);
-    tracker.apply(ev);
+    const session = tracker.resolve(ev.session);
+    markHooked(db, session);
+    tracker.apply({ ...ev, session });
   });
   const paneMonitor = new PaneMonitor(db, tmux, tracker);
 
@@ -280,6 +282,15 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     audit.record('session.closed', ctxOf(req), { name });
     await hub.refreshSessions();
     return { ok: true };
+  });
+
+  fastify.patch('/api/sessions/:name', async (req) => {
+    const { name } = nameParam.parse(req.params);
+    const { name: to } = renameSessionSchema.parse(req.body);
+    await sessionService.rename(name, to);
+    audit.record('session.renamed', ctxOf(req), { name, to });
+    await hub.refreshSessions();
+    return { name: to };
   });
 
   // Pasted / dropped images: stored where the session can read them, the path is typed into the terminal.

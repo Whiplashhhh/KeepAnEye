@@ -1,9 +1,10 @@
 import { EventEmitter } from 'node:events';
 import type { ActivityItem, ClaudeStatus } from '@kae/shared';
-import type { DB } from '../db.js';
 import type { ClaudeEvent } from './events.js';
 import type { ClaudeState } from './status.js';
-import { forgetHooked } from './pane.js';
+import type { DB } from '../db.js';
+import { kvGet, kvSet } from '../db.js';
+import { forgetHooked, hookedKey, markHooked } from './pane.js';
 import { applyEvent } from './status.js';
 
 export interface StatusChange {
@@ -27,6 +28,7 @@ interface Row {
 }
 
 const MAX_ACTIVITY_ROWS = 5000;
+const aliasKey = (session: string) => `alias:${session}`;
 
 /** Persists per-session Claude state and the activity feed; emits `change` on every applied event. */
 export class ClaudeTracker extends EventEmitter<{ change: [StatusChange] }> {
@@ -48,6 +50,30 @@ export class ClaudeTracker extends EventEmitter<{ change: [StatusChange] }> {
   reset(session: string): void {
     this.db.prepare('DELETE FROM claude_state WHERE session = ?').run(session);
     forgetHooked(this.db, session);
+    this.db.prepare('DELETE FROM kv WHERE key = ?').run(aliasKey(session));
+  }
+
+  /**
+   * Moves a session's state to its new name. The Claude process keeps the name it was started with
+   * (KEEP_AN_EYE_SESSION), so its later hook events are redirected through an alias.
+   */
+  rename(from: string, to: string): void {
+    const oldValue = JSON.stringify(from);
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM claude_state WHERE session = ?').run(to);
+      this.db.prepare('UPDATE claude_state SET session = ? WHERE session = ?').run(to, from);
+      this.db.prepare('UPDATE activity SET session = ? WHERE session = ?').run(to, from);
+      if (kvGet(this.db, hookedKey(from))) markHooked(this.db, to);
+      forgetHooked(this.db, from);
+      this.db.prepare(`UPDATE kv SET value = ? WHERE key LIKE 'alias:%' AND value = ?`).run(JSON.stringify(to), oldValue);
+      this.db.prepare('DELETE FROM kv WHERE key = ?').run(aliasKey(to));
+      kvSet(this.db, aliasKey(from), to);
+    })();
+  }
+
+  /** The current name of the session an event was emitted for (it may have been renamed since). */
+  resolve(session: string): string {
+    return kvGet<string>(this.db, aliasKey(session)) ?? session;
   }
 
   apply(ev: ClaudeEvent): StatusChange {

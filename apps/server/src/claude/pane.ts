@@ -50,7 +50,7 @@ export function readPane(lines: string[]): PaneReading {
   return { busy: false, waiting: q ?? 'Claude attend ta réponse' };
 }
 
-const hookedKey = (session: string) => `hooked:${session}`;
+export const hookedKey = (session: string) => `hooked:${session}`;
 
 export function markHooked(db: DB, session: string): void {
   if (!kvGet(db, hookedKey(session))) kvSet(db, hookedKey(session), true);

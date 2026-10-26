@@ -231,6 +231,28 @@ describe('sessions API', () => {
     expect(events).toContain('session.closed');
   });
 
+  it('renames a session and keeps its Claude state', async () => {
+    const sid = await login();
+    const patch = (url: string, payload: unknown) =>
+      app.fastify.inject({ method: 'PATCH', url, payload: payload as object, cookies: { kae_sid: sid }, headers: { origin: ORIGIN } });
+    await post('/api/sessions', { name: 'old-name', template: 'terminal' }, { kae_sid: sid });
+    await post('/api/sessions', { name: 'other', template: 'terminal' }, { kae_sid: sid });
+
+    expect((await patch('/api/sessions/old-name', { name: 'other' })).statusCode).toBe(409);
+    expect((await patch('/api/sessions/old-name', { name: 'bad name' })).statusCode).toBe(400);
+    expect((await patch('/api/sessions/ghost', { name: 'new-name' })).statusCode).toBe(404);
+
+    app.tracker.apply({ session: 'old-name', hook: 'UserPromptSubmit', ts: Date.now(), prompt: 'hi' } as never);
+    const ok = await patch('/api/sessions/old-name', { name: 'new-name' });
+    expect(ok.statusCode).toBe(200);
+    expect(tmux.sessions.has('old-name')).toBe(false);
+    expect(tmux.sessions.has('new-name')).toBe(true);
+    expect(app.tracker.get('new-name')).not.toBeNull();
+    expect(app.tracker.get('old-name')).toBeNull();
+    expect(app.tracker.resolve('old-name')).toBe('new-name');
+    expect(app.audit.list().map((e) => e.event)).toContain('session.renamed');
+  });
+
   it('stores a pasted image and returns the path the session can read', async () => {
     const sid = await login();
     await post('/api/sessions', { name: 'shell-1', template: 'terminal' }, { kae_sid: sid });

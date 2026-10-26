@@ -12,6 +12,7 @@ export type AuditEvent =
   | 'logout.all'
   | 'session.created'
   | 'session.closed'
+  | 'session.renamed'
   | 'session.upload'
   | 'fs.mkdir'
   | 'ssh_host.created'

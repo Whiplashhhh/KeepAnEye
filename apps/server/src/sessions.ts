@@ -187,6 +187,17 @@ export class SessionService {
     await this.tmux.killSession(name);
   }
 
+  async rename(name: string, to: string): Promise<void> {
+    if (!SESSION_NAME_RE.test(name) || !SESSION_NAME_RE.test(to)) throw new HttpError(400, 'invalid_name', 'Nom de session invalide.');
+    if (!(await this.tmux.hasSession(name))) throw new HttpError(404, 'not_found', 'Cette session n’existe plus.');
+    if (name === to) return;
+    if (await this.tmux.hasSession(to)) {
+      throw new HttpError(409, 'session_exists', `Une session « ${to} » existe déjà. Choisis un autre nom.`);
+    }
+    await this.tmux.renameSession(name, to);
+    this.tracker.rename(name, to);
+  }
+
   async exists(name: string): Promise<boolean> {
     return SESSION_NAME_RE.test(name) && this.tmux.hasSession(name);
   }

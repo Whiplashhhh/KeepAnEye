@@ -39,6 +39,7 @@ export interface TmuxClient {
   capturePane(name: string, lines: number): Promise<string[]>;
   newSession(name: string, opts: NewSessionOptions): Promise<void>;
   killSession(name: string): Promise<void>;
+  renameSession(name: string, to: string): Promise<void>;
   attachCommand(name: string): AttachCommand;
   /** Scroll the pane's history (tmux copy mode): positive = up, towards older output. */
   scrollPane(name: string, lines: number): Promise<void>;
@@ -189,6 +190,10 @@ export class RealTmuxClient implements TmuxClient {
 
   async killSession(name: string): Promise<void> {
     await this.run(['kill-session', '-t', `=${name}`]);
+  }
+
+  async renameSession(name: string, to: string): Promise<void> {
+    await this.run(['rename-session', '-t', `=${name}`, to]);
   }
 
   attachCommand(name: string): AttachCommand {

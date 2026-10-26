@@ -46,6 +46,14 @@ export class FakeTmuxClient implements TmuxClient {
     if (!this.sessions.delete(name)) throw new TmuxError(`can't find session: ${name}`);
   }
 
+  async renameSession(name: string, to: string): Promise<void> {
+    const s = this.sessions.get(name);
+    if (!s) throw new TmuxError(`can't find session: ${name}`);
+    if (this.sessions.has(to)) throw new TmuxError(`duplicate session: ${to}`);
+    this.sessions.delete(name);
+    this.sessions.set(to, { ...s, name: to });
+  }
+
   attachCommand(_name: string): AttachCommand {
     return { file: 'cat', args: [] };
   }
