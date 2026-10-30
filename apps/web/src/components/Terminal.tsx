@@ -185,6 +185,20 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
         return true;
       });
 
+      // Copy on select: xterm drops the selection as soon as anything is sent to the program (mouse
+      // reports, keystrokes), sometimes right at mouse release. Copy at that instant, before it can go.
+      let dragFromTerm = false;
+      const onMouseDown = (e: MouseEvent) => {
+        dragFromTerm = e.button === 0;
+      };
+      const onMouseUp = (e: MouseEvent) => {
+        if (!dragFromTerm || e.button !== 0) return;
+        dragFromTerm = false;
+        if (term.hasSelection()) copySelection();
+      };
+      el.addEventListener('mousedown', onMouseDown, true);
+      window.addEventListener('mouseup', onMouseUp, true); // capture: runs before xterm's own mouseup
+
       // Pasted or dropped images can't travel through the terminal: upload them, type the file path.
       const imageOf = (files: FileList | undefined | null) => Array.from(files ?? []).find((f) => UPLOAD_TYPES.includes(f.type));
       const onPaste = (e: ClipboardEvent) => {
@@ -388,6 +402,8 @@ export const Terminal = forwardRef<TerminalHandle, { session: string; onLinkChan
         window.clearTimeout(retryTimer);
         window.clearTimeout(resizeTimer);
         cancelAnimationFrame(momentum);
+        el.removeEventListener('mousedown', onMouseDown, true);
+        window.removeEventListener('mouseup', onMouseUp, true);
         el.removeEventListener('paste', onPaste, true);
         el.removeEventListener('dragover', onDragOver);
         el.removeEventListener('drop', onDrop);
