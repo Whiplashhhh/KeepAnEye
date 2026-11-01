@@ -8,15 +8,22 @@ import { tempDir, testConfig } from './helpers.js';
 
 describe('repo references', () => {
   it('accepts owner/repo, GitHub URLs and SSH remotes', () => {
-    const want = { repo: 'Whiplashhhh/EDT', project: 'EDT' };
+    const want = { forge: 'github', repo: 'Whiplashhhh/EDT', project: 'EDT' };
     for (const r of ['Whiplashhhh/EDT', ' Whiplashhhh/EDT ', 'https://github.com/Whiplashhhh/EDT', 'github.com/Whiplashhhh/EDT/', 'https://github.com/Whiplashhhh/EDT.git', 'git@github.com:Whiplashhhh/EDT.git']) {
       expect(parseRepoRef(r), r).toEqual(want);
     }
-    expect(parseRepoRef('me/my.repo_2')).toEqual({ repo: 'me/my.repo_2', project: 'my.repo_2' });
+    expect(parseRepoRef('me/my.repo_2')).toEqual({ forge: 'github', repo: 'me/my.repo_2', project: 'my.repo_2' });
+  });
+
+  it('accepts Entire references, entire.com URLs and entire:// clone URLs', () => {
+    const want = { forge: 'entire', repo: '/et/whiplashhhh/diapason', project: 'diapason' };
+    for (const r of ['/et/whiplashhhh/diapason', 'et/whiplashhhh/diapason', 'https://entire.com/et/whiplashhhh/diapason', 'entire.com/et/whiplashhhh/diapason/', 'entire://aws-eu-central-1.entire.io/et/whiplashhhh/diapason.git']) {
+      expect(parseRepoRef(r), r).toEqual(want);
+    }
   });
 
   it('rejects anything that could escape the workspace or reach a shell', () => {
-    for (const r of ['', 'EDT', 'a/b/c', '../etc', 'owner/..', 'owner/.hidden', 'a/b c', 'x/y;reboot', '-x/y', 'https://evil.com/a/b', '$(id)/x']) {
+    for (const r of ['', 'EDT', 'a/b/c', '../etc', 'owner/..', 'owner/.hidden', 'a/b c', 'x/y;reboot', '-x/y', 'https://evil.com/a/b', '$(id)/x', '/et/p/..', '/et/../x', '/et/p/r/x', 'https://evil.com/et/p/r', 'entire://h;id/et/p/r', '/gh/o/r']) {
       expect(parseRepoRef(r), r).toBeNull();
     }
   });

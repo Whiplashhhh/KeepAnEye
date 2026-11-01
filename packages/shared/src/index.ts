@@ -7,22 +7,43 @@ export const sessionNameSchema = z.string().regex(SESSION_NAME_RE, 'Nom de sessi
 /** Project folder names inside ~/claude-box/workspace. */
 export const PROJECT_NAME_RE = /^[a-zA-Z0-9._-]{1,80}$/;
 
+export interface RepoRef {
+  /** Where the repo lives: GitHub (cloned with gh) or the Entire forge (cloned with the entire CLI). */
+  forge: 'github' | 'entire';
+  /** "owner/repo" on GitHub, "/et/project/repo" on Entire. */
+  repo: string;
+  /** Workspace folder: the repo name. */
+  project: string;
+}
+
+const ENTIRE_REF_RE = /^\/et\/([a-zA-Z0-9._-]{1,80})\/([a-zA-Z0-9._-]{1,80})$/;
+
 /**
- * GitHub repo to clone into the workspace: "owner/repo", also accepting a github.com URL or SSH remote.
+ * Repo to clone into the workspace. GitHub: "owner/repo", also accepting a github.com URL or SSH remote.
+ * Entire: "/et/project/repo", also accepting an entire.com URL or an entire:// clone URL.
  * The project folder is the repo name. Returns null when the input isn't a usable repo reference.
  */
-export function parseRepoRef(input: string): { repo: string; project: string } | null {
-  const s = input
-    .trim()
+export function parseRepoRef(input: string): RepoRef | null {
+  const trimmed = input.trim().replace(/\/+$/, '').replace(/\.git$/i, '');
+  const e = ENTIRE_REF_RE.exec(
+    trimmed
+      .replace(/^(?:https?:\/\/)?(?:www\.)?entire\.com(?=\/et\/)/i, '')
+      .replace(/^entire:\/\/[a-zA-Z0-9.-]+(?=\/et\/)/i, '')
+      .replace(/^et\//i, '/et/'),
+  );
+  if (e) {
+    const project = e[2]!;
+    if (e[1]!.startsWith('.') || project.startsWith('.')) return null;
+    return { forge: 'entire', repo: `/et/${e[1]}/${project}`, project };
+  }
+  const s = trimmed
     .replace(/^(?:https?:\/\/)?(?:www\.)?github\.com[/:]/i, '')
-    .replace(/^git@github\.com:/i, '')
-    .replace(/\/+$/, '')
-    .replace(/\.git$/i, '');
+    .replace(/^git@github\.com:/i, '');
   const m = /^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,38}))\/([a-zA-Z0-9._-]{1,80})$/.exec(s);
   if (!m) return null;
   const project = m[2]!;
-  if (project === '.' || project === '..' || project.startsWith('.')) return null;
-  return { repo: `${m[1]}/${project}`, project };
+  if (project.startsWith('.')) return null;
+  return { forge: 'github', repo: `${m[1]}/${project}`, project };
 }
 
 export const CLAUDE_STATUSES = ['waiting', 'working', 'done', 'error', 'idle'] as const;

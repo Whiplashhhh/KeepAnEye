@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { PROJECT_NAME_RE } from '@kae/shared';
+import { PROJECT_NAME_RE, type RepoRef } from '@kae/shared';
 
 /** Project folders actually present in ~/claude-box/workspace (directories only, no hidden entries). */
 export async function listProjects(workspaceDir: string): Promise<string[]> {
@@ -23,14 +23,17 @@ export async function isValidProject(workspaceDir: string, name: unknown): Promi
 }
 
 export interface RepoCloner {
-  /** Clones `repo` ("owner/repo") into `<workspace>/<project>`. Rejects with a readable message. */
-  clone(repo: string, project: string): Promise<void>;
+  /** Clones the repo into `<workspace>/<ref.project>`. Rejects with a readable message. */
+  clone(ref: RepoRef): Promise<void>;
 }
 
 /**
- * Runs `gh repo clone` inside the claude-box container, as the claude user: that is where gh is
- * logged in, and the clone lands in /workspace (= ~/claude-box/workspace on the host) with the
- * right owner. execFile, never a shell; the repo is validated by parseRepoRef beforehand.
+ * Clones inside the claude-box container, as the claude user: that is where gh and the entire CLI
+ * are logged in, and the clone lands in /workspace (= ~/claude-box/workspace on the host) with the
+ * right owner. execFile, never a shell; the ref is validated by parseRepoRef beforehand.
+ *
+ * GitHub: `gh repo clone`. Entire: `entire repo clone`, then `entire enable` so the session capture
+ * (Claude Code hooks + git hooks, which a clone doesn't carry) is on before Claude starts.
  */
 export class ClaudeBoxCloner implements RepoCloner {
   constructor(
@@ -40,17 +43,30 @@ export class ClaudeBoxCloner implements RepoCloner {
     private readonly timeoutMs = 5 * 60_000,
   ) {}
 
-  clone(repo: string, project: string): Promise<void> {
+  async clone(ref: RepoRef): Promise<void> {
+    if (ref.forge === 'github') {
+      await this.exec('/workspace', ['gh', 'repo', 'clone', ref.repo, ref.project]);
+      return;
+    }
+    await this.exec('/workspace', ['entire', 'repo', 'clone', ref.repo, ref.project]);
+    try {
+      await this.exec(`/workspace/${ref.project}`, ['entire', 'enable', '--yes', '--agent', 'claude-code']);
+    } catch (e) {
+      throw new Error(`cloné, mais « entire enable » a échoué (lance-le dans le projet) : ${(e as Error).message}`);
+    }
+  }
+
+  private exec(cwd: string, command: string[]): Promise<void> {
     const args = [
       'compose', '-f', path.join(this.claudeBoxDir, 'compose.yml'),
-      'exec', '-T', '-u', 'claude', '-w', '/workspace', this.service,
-      'gh', 'repo', 'clone', repo, project,
+      'exec', '-T', '-u', 'claude', '-w', cwd, this.service,
+      ...command,
     ];
     return new Promise((resolve, reject) => {
       execFile(this.dockerBin, args, { timeout: this.timeoutMs, maxBuffer: 4 * 1024 * 1024 }, (err, _stdout, stderr) => {
         if (!err) return resolve();
         const detail = (stderr || err.message).trim().split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300);
-        reject(new Error(detail || 'échec du clonage'));
+        reject(new Error(detail || `échec de ${command[0]}`));
       });
     });
   }

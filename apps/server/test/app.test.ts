@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import type { RepoRef } from '@kae/shared';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { App } from '../src/app.js';
@@ -22,7 +23,7 @@ let tmux: FakeTmuxClient;
 let secret: string;
 let recovery: string[];
 let config: ReturnType<typeof testConfig>;
-let clones: Array<{ repo: string; project: string }>;
+let clones: RepoRef[];
 let cloneError: string | null;
 
 beforeEach(async () => {
@@ -46,10 +47,10 @@ beforeEach(async () => {
     logger: false,
     rateLimit: { ...DEFAULT_RATE_LIMIT, ipThreshold: 5 },
     cloner: {
-      clone: async (repo, project) => {
+      clone: async (ref) => {
         if (cloneError) throw new Error(cloneError);
-        clones.push({ repo, project });
-        mkdirSync(path.join(config.workspaceDir, project));
+        clones.push(ref);
+        mkdirSync(path.join(config.workspaceDir, ref.project));
       },
     },
   });
@@ -447,7 +448,7 @@ describe('sessions API', () => {
     const sid = await login();
     const r = await post('/api/sessions', { name: 'edt', template: 'claude', repo: 'https://github.com/Whiplashhhh/EDT.git' }, { kae_sid: sid });
     expect(r.statusCode).toBe(200);
-    expect(clones).toEqual([{ repo: 'Whiplashhhh/EDT', project: 'EDT' }]);
+    expect(clones).toEqual([{ forge: 'github', repo: 'Whiplashhhh/EDT', project: 'EDT' }]);
     const { opts } = tmux.created[0]!;
     expect(opts.command).toContain('/workspace/EDT');
     expect(opts.userOptions).toMatchObject({ '@kae_project': 'EDT' });
@@ -458,6 +459,14 @@ describe('sessions API', () => {
     const again = await post('/api/sessions', { name: 'edt-2', template: 'claude', repo: 'Whiplashhhh/EDT' }, { kae_sid: sid });
     expect(again.statusCode).toBe(200);
     expect(clones).toHaveLength(1);
+  });
+
+  it('clones an Entire repo from its entire.com URL', async () => {
+    const sid = await login();
+    const r = await post('/api/sessions', { name: 'diapason', template: 'claude', repo: 'https://entire.com/et/whiplashhhh/diapason' }, { kae_sid: sid });
+    expect(r.statusCode).toBe(200);
+    expect(clones).toEqual([{ forge: 'entire', repo: '/et/whiplashhhh/diapason', project: 'diapason' }]);
+    expect(tmux.created[0]!.opts.command).toContain('/workspace/diapason');
   });
 
   it('reports bad repos and clone failures without creating a session', async () => {

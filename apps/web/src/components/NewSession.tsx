@@ -1,6 +1,6 @@
 import type { SshHost, TemplateChoice, TemplateInfo } from '@kae/shared';
 import { parseRepoRef, SESSION_NAME_RE } from '@kae/shared';
-import { Bot, FolderGit2, Github, Plus, Server, ShieldAlert, SquareTerminal } from 'lucide-react';
+import { Bot, FolderGit2, GitBranch, Github, Plus, Server, ShieldAlert, SquareTerminal } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
@@ -265,13 +265,17 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
             {source === 'clone' ? (
               <div>
                 <div className="relative">
-                  <Github className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
+                  {repoRef?.forge === 'entire' ? (
+                    <GitBranch className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
+                  ) : (
+                    <Github className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
+                  )}
                   <input
                     id="ns-repo"
                     aria-labelledby="ns-project-label"
                     value={repo}
                     onChange={(e) => setRepo(e.target.value)}
-                    placeholder="propriétaire/repo"
+                    placeholder="propriétaire/repo ou URL entire.com"
                     autoComplete="off"
                     autoCapitalize="off"
                     spellCheck={false}
@@ -286,12 +290,14 @@ export function NewSessionSheet({ open, onOpenChange }: { open: boolean; onOpenC
                 </div>
                 <p id="ns-repo-help" className={cx('mt-1.5 text-xs', repo && !repoRef ? 'text-error' : 'text-faint')}>
                   {repo && !repoRef
-                    ? 'Écris-le sous la forme propriétaire/repo (ou colle l’URL GitHub).'
+                    ? 'Écris-le sous la forme propriétaire/repo, ou colle l’URL GitHub ou entire.com.'
                     : repoExists
                       ? `Le dossier ${repoRef!.project} existe déjà : il sera utilisé tel quel.`
-                      : repoRef
-                        ? `gh repo clone ${repoRef.repo} → workspace/${repoRef.project}`
-                        : 'Cloné avec gh dans claude-box, puis ajouté à la liste des projets.'}
+                      : repoRef?.forge === 'entire'
+                        ? `entire repo clone ${repoRef.repo} → workspace/${repoRef.project}, puis entire enable`
+                        : repoRef
+                          ? `gh repo clone ${repoRef.repo} → workspace/${repoRef.project}`
+                          : 'Cloné dans claude-box (gh pour GitHub, entire pour Entire), puis ajouté à la liste des projets.'}
                 </p>
               </div>
             ) : projects && projects.length === 0 ? (

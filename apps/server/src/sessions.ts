@@ -24,7 +24,7 @@ export interface SessionServiceOptions {
   workspaceDir: string;
   claudeBoxDir: string;
   claudeHomeDir: string;
-  /** Clones a GitHub repo into the workspace when a session asks for one. */
+  /** Clones a GitHub or Entire repo into the workspace when a session asks for one. */
   cloner?: RepoCloner;
   /**
    * Check the working directory exists before creating a session. Off when the tmux server runs
@@ -166,12 +166,12 @@ export class SessionService {
   private async cloneProject(input: string): Promise<string> {
     const ref = parseRepoRef(input);
     if (!ref) {
-      throw new HttpError(400, 'invalid_repo', 'Repo invalide : écris-le sous la forme « propriétaire/repo ».');
+      throw new HttpError(400, 'invalid_repo', 'Repo invalide : écris-le sous la forme « propriétaire/repo » (GitHub) ou « /et/projet/repo » (Entire).');
     }
     if ((await listProjects(this.opts.workspaceDir)).includes(ref.project)) return ref.project;
     if (!this.opts.cloner) throw new HttpError(501, 'clone_unavailable', 'Le clonage de repo n’est pas disponible ici.');
     try {
-      await this.opts.cloner.clone(ref.repo, ref.project);
+      await this.opts.cloner.clone(ref);
     } catch (e) {
       throw new HttpError(502, 'clone_failed', `Impossible de cloner ${ref.repo} : ${(e as Error).message}`);
     }

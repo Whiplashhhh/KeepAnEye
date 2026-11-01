@@ -25,7 +25,7 @@ Toutes les captures (mobile et bureau, sombre et clair) sont dans [`docs/screens
 - **Mobile d'abord** : terminal plein écran qui se redimensionne au-dessus du clavier, barre de touches `Esc` `Tab` `Ctrl` `^C` `↑` `↓` `⏎` `←` `→` et coller.
 - **Créer / fermer** des sessions à partir de modèles (Terminal, Machine SSH, Claude dans claude-box, et les tiens).
 - **Machines SSH** : enregistre un VPS (ou tout autre serveur) dans les réglages, puis ouvre un terminal dessus avec le modèle « Machine SSH ». Voir [Machines SSH](#machines-ssh).
-- **Cloner un repo** au moment de lancer Claude : tape `propriétaire/repo` (ou colle l'URL GitHub) au lieu de choisir un projet ; l'appli lance `gh repo clone` dans claude-box (utilisateur `claude`, donc avec son authentification `gh`), le dossier arrive dans `~/claude-box/workspace` et rejoint la liste des projets. Si le dossier existe déjà, il est réutilisé tel quel.
+- **Cloner un repo** au moment de lancer Claude : tape `propriétaire/repo` (ou colle l'URL GitHub) au lieu de choisir un projet ; l'appli lance `gh repo clone` dans claude-box (utilisateur `claude`, donc avec son authentification `gh`), le dossier arrive dans `~/claude-box/workspace` et rejoint la liste des projets. Si le dossier existe déjà, il est réutilisé tel quel. Les repos de la forge [Entire](https://entire.com) marchent aussi : colle l'URL `https://entire.com/et/projet/repo` (ou `/et/projet/repo`) ; l'appli lance `entire repo clone` puis `entire enable --yes --agent claude-code`, pour que les sessions Claude (prompts, outils utilisés, fichiers touchés) soient enregistrées en checkpoints à chaque commit (voir [Entire dans claude-box](#entire-dans-claude-box)).
 - **Suivi de Claude Code** par des hooks qui écrivent dans un fichier (claude-box ne peut pas joindre l'appli), et **timeline** lisible du transcript : messages, outils, fichiers modifiés.
 - **Notifications Web Push** quand une session t'attend, a terminé ou est en erreur ; toucher la notification ouvre la session. Réglages par type et plage « ne pas déranger ».
 - **Bureau** : deux panneaux, palette de commandes `Ctrl K`, raccourcis (`?`).
@@ -232,6 +232,21 @@ rm ~/claude-box/workspace/install-claude-hooks.sh
 Chaque événement ajoute une ligne JSON compacte dans `/events/claude.jsonl`, enrichie de `$KEEP_AN_EYE_SESSION` (que l'appli passe à `docker compose exec -e`). Seuls les champs utiles sont gardés et tronqués : le contenu des fichiers écrits par Claude n'atterrit jamais dans les événements. Le hook ne bloque jamais Claude et n'écrit rien sur sa sortie. Pour retirer : `… install-claude-hooks.sh --uninstall`.
 
 Relance les sessions Claude déjà ouvertes pour qu'elles prennent les hooks en compte.
+
+### Entire dans claude-box
+
+Pour cloner des repos Entire, le CLI `entire` (et `git-remote-entire`, qui sert les URL `entire://`) doit être installé et connecté **dans le conteneur**, pour l'utilisateur `claude`, et être dans son `PATH` : les hooks Git et Claude Code ajoutés par `entire enable` l'appellent par son nom. Une fois :
+
+```bash
+cd ~/claude-box
+docker compose exec -u claude claude bash -c 'curl -fsSL https://entire.com/install.sh | bash'   # → ~/.local/bin
+docker compose exec -u claude claude bash -lc 'entire version'      # vérifie que ~/.local/bin est dans le PATH
+docker compose exec -u claude claude bash -lc 'ENTIRE_TOKEN_STORE=file entire login --device'
+```
+
+Le conteneur n'a en général pas de trousseau (Secret Service) : `ENTIRE_TOKEN_STORE=file` range le jeton dans `~/.config/entire/tokens.json` (0600), donc dans `~/claude-box/claude-home` sur l'hôte. Pour garder ce réglage : `echo '{"token_store": "file"}' > ~/.config/entire/config.json` dans le conteneur.
+
+Si `entire enable` échoue après le clonage, le dossier est quand même là : lance `entire enable --agent claude-code` dedans, puis `entire status --detailed` pour vérifier. Par défaut, Entire pousse les checkpoints (transcripts compris) sur le même remote que le code au `git push`.
 
 ### Comment les statuts sont déduits
 
