@@ -63,9 +63,9 @@ export class ClaudeBoxCloner implements RepoCloner {
       ...command,
     ];
     return new Promise((resolve, reject) => {
-      execFile(this.dockerBin, args, { timeout: this.timeoutMs, maxBuffer: 4 * 1024 * 1024 }, (err, _stdout, stderr) => {
+      execFile(this.dockerBin, args, { timeout: this.timeoutMs, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => {
         if (!err) return resolve();
-        const detail = (stderr || err.message).trim().split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300);
+        const detail = (stderr.trim() || stdout.trim() || err.message).trim().split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300);
         reject(new Error(detail || `échec de ${command[0]}`));
       });
     });
