@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 
 const EVENTS: Record<string, { label: string; icon: LucideIcon; tone?: 'bad' | 'warn' }> = {
   'login.success': { label: 'Connexion réussie', icon: LogIn },
+  // Former two-factor events, kept so older log entries still read well.
   'login.password_ok': { label: 'Mot de passe correct', icon: KeyRound },
   'login.password_failed': { label: 'Mot de passe incorrect', icon: CircleX, tone: 'bad' },
   'login.second_factor_failed': { label: 'Code 2FA incorrect', icon: CircleX, tone: 'bad' },
@@ -28,7 +29,7 @@ const EVENTS: Record<string, { label: string; icon: LucideIcon; tone?: 'bad' | '
 function describe(e: AuditEntry): string | null {
   const d = e.detail ?? {};
   if (typeof d.name === 'string') return d.name;
-  if (typeof d.method === 'string') return d.method === 'recovery' ? 'via code de secours' : 'via TOTP';
+  if (typeof d.method === 'string') return { password: 'via mot de passe', recovery: 'via code de secours', totp: 'via TOTP' }[d.method] ?? null;
   if (typeof d.remaining === 'number') return `${d.remaining} code(s) restant(s)`;
   return null;
 }

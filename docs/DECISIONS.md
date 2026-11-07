@@ -7,9 +7,8 @@ Une ligne par décision : décision — raison.
 - Versions : TypeScript 5.9, Vite 7, Vitest 5, ESLint 9, Tailwind 4, React 19, Fastify 5 (@fastify/static 10, sans vulnérabilité connue), Playwright 1.64 — versions stables éprouvées ; Playwright aligné sur le Chromium préinstallé.
 - `packages/shared` est consommé en source TypeScript ; le serveur est bundlé par esbuild — pas d'étape de build intermédiaire ni de références de projets à maintenir.
 - Argon2id via `@node-rs/argon2` (binaires précompilés sur npm) — aucune compilation native requise en production.
-- TOTP implémenté avec `node:crypto` (RFC 6238, SHA-1, 30 s, 6 chiffres) — quelques lignes auditables, pas de dépendance.
+- Plus de 2FA (TOTP et codes de secours retirés) : connexion par mot de passe seul, sessions de 30 jours d'inactivité / 90 jours maximum — l'appli n'écoute qu'en loopback et n'est servie que par Tailscale, dont l'authentification d'appareil joue déjà le rôle de second facteur ; le TOTP ajoutait de la friction sans protection réelle en plus.
 - L'identifiant de session n'est stocké qu'haché (SHA-256) en base — une fuite de la base ne permet pas de voler une session.
-- Étape intermédiaire « mot de passe validé » portée par un cookie `kae_pre` de 5 min — le TOTP n'est jamais demandé sans mot de passe correct, et l'état reste côté serveur.
 - Délai constant de 800 ms sur toutes les réponses de connexion — masque la différence entre utilisateur inexistant, mauvais mot de passe et blocage.
 - Blocage progressif par IP : 5 échecs → 1 min, puis doublement jusqu'à 1 h ; blocage global après 30 échecs en 15 min — freine le brute force sans m'enfermer longtemps.
 - L'IP client est lue dans `X-Forwarded-For` uniquement si la connexion vient du loopback (cas de `tailscale serve`).
@@ -34,7 +33,7 @@ Une ligne par décision : décision — raison.
 - Le terminal attend une vraie mise en page avant de s'attacher et n'envoie jamais de taille < 5 lignes — sinon tmux réduirait la fenêtre et pousserait l'écran dans l'historique.
 - Pour une session Claude, « dernière activité » = dernier événement de hook — l'interface de Claude redessine sans cesse, l'activité tmux ne veut rien dire.
 - L'aperçu retire cadres, invites vides et indications d'interface — sinon les dernières lignes d'une session Claude ne sont que la bordure de sa zone de saisie.
-- Les specs e2e qui ne testent pas la connexion utilisent une session préfabriquée par le serveur de test — un code TOTP ne sert qu'une fois, enchaîner les connexions imposerait d'attendre 30 s à chaque test.
+- Les specs e2e qui ne testent pas la connexion utilisent une session préfabriquée par le serveur de test — évite de rejouer l'écran de connexion dans chaque spec.
 - Captures d'écran sur un vrai tmux (socket dédié) avec des contenus et des événements de démonstration réalistes, `KAE_HOST_LABEL=homelab` — ce qu'on voit est ce que l'appli affiche réellement.
 - Les fichiers statiques sont indexés au démarrage (`@fastify/static`, `wildcard: false`) — une route par fichier, le reste part vers l'app ; il faut redémarrer après un build (documenté).
 - Hôte affiché via `KAE_HOST_LABEL` (défaut : hostname) — le hostname d'un conteneur ou d'une VM n'est pas toujours parlant.

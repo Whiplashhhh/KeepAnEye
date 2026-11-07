@@ -29,14 +29,10 @@ for (const [device, opts] of Object.entries(VIEWPORTS)) {
         await page.screenshot({ path: path.join(OUT, `${device}-${theme}-${name}.png`) });
       };
 
-      // Login (password, then TOTP step).
+      // Login.
       await page.goto('/');
       await expect(page.getByLabel('Mot de passe')).toBeVisible();
       await shot('01-login');
-      await page.getByLabel('Mot de passe').fill('e2e-password-correct-horse');
-      await page.getByRole('button', { name: 'Continuer' }).click();
-      await expect(page.getByLabel('Chiffre 1')).toBeVisible();
-      await shot('02-login-totp');
 
       await signIn(context, 'demo');
       await page.goto('/');

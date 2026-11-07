@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hashToken, PREAUTH_MS, SESSION_IDLE_MS, SESSION_MAX_MS, SessionStore } from '../src/auth/sessions.js';
+import { hashToken, SESSION_IDLE_MS, SESSION_MAX_MS, SessionStore } from '../src/auth/sessions.js';
 import { memDb } from './helpers.js';
 
 function store() {
@@ -30,7 +30,7 @@ describe('SessionStore', () => {
     expect(s.validate(`${token}x`)).toBe(false);
   });
 
-  it('expires after 12 h of inactivity', () => {
+  it('expires after 30 days of inactivity', () => {
     const { s, advance } = store();
     const token = s.create({ ip: null, userAgent: null });
     advance(SESSION_IDLE_MS - 1000);
@@ -43,7 +43,7 @@ describe('SessionStore', () => {
     expect(s.count()).toBe(0);
   });
 
-  it('expires after 7 days even if active', () => {
+  it('expires after 90 days even if active', () => {
     const { s, advance } = store();
     const token = s.create({ ip: null, userAgent: null });
     for (let elapsed = 0; elapsed < SESSION_MAX_MS - 3600_000; elapsed += 3600_000) {
@@ -64,14 +64,6 @@ describe('SessionStore', () => {
     s.create({ ip: null, userAgent: null });
     expect(s.destroyAll()).toBe(2);
     expect(s.validate(b)).toBe(false);
-  });
-
-  it('pre-auth tokens expire after 5 minutes', () => {
-    const { s, advance } = store();
-    const pre = s.createPreauth('1.1.1.1');
-    expect(s.validatePreauth(pre)).toBe(true);
-    advance(PREAUTH_MS + 1);
-    expect(s.validatePreauth(pre)).toBe(false);
   });
 
   it('purges expired rows', () => {

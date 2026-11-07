@@ -14,7 +14,6 @@ import {
   passwordLoginSchema,
   pushSubscriptionSchema,
   SESSION_NAME_RE,
-  secondFactorSchema,
   sshHostInputSchema,
 } from '@kae/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -28,7 +27,7 @@ import { isOriginAllowed, requiresOriginCheck } from './auth/origin.js';
 import type { RateLimitOptions } from './auth/rateLimit.js';
 import { LoginRateLimiter } from './auth/rateLimit.js';
 import { AuthService } from './auth/service.js';
-import { PREAUTH_COOKIE, PREAUTH_MS, SESSION_COOKIE, SESSION_MAX_MS, SessionStore } from './auth/sessions.js';
+import { SESSION_COOKIE, SESSION_MAX_MS, SessionStore } from './auth/sessions.js';
 import { ClaudeTracker } from './claude/tracker.js';
 import { readTimeline } from './claude/transcript.js';
 import { markHooked, PaneMonitor } from './claude/pane.js';
@@ -137,11 +136,11 @@ export async function buildApp(deps: AppDeps): Promise<App> {
 
   const ctxOf = (req: FastifyRequest) => ({ ip: req.ip, userAgent: req.headers['user-agent'] ?? null });
 
-  const cookieOpts = (maxAgeMs: number, cookiePath = '/') => ({
+  const cookieOpts = (maxAgeMs: number) => ({
     httpOnly: true,
     secure: config.cookieSecure,
     sameSite: 'strict' as const,
-    path: cookiePath,
+    path: '/',
     maxAge: Math.floor(maxAgeMs / 1000),
   });
 
@@ -153,7 +152,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   });
 
   // ---- Authentication guard for the API ----
-  const PUBLIC = new Set(['/api/health', '/api/auth/me', '/api/auth/password', '/api/auth/second-factor']);
+  const PUBLIC = new Set(['/api/health', '/api/auth/me', '/api/auth/password']);
   fastify.addHook('preHandler', async (req, reply) => {
     // Decide on the route that actually matched, not on the raw URL text (immune to odd encodings).
     const route = req.routeOptions.url ?? '';
@@ -188,16 +187,12 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   }
 
   /** Sets the status and returns the body: sent by Fastify only once the constant delay has elapsed. */
-  function loginFailure(reply: FastifyReply, reason: 'invalid' | 'blocked' | 'expired', retryAfterMs?: number) {
+  function loginFailure(reply: FastifyReply, reason: 'invalid' | 'blocked', retryAfterMs?: number) {
     if (reason === 'blocked') {
       const seconds = Math.ceil((retryAfterMs ?? 60_000) / 1000);
       reply.code(429).header('Retry-After', String(seconds));
       const minutes = Math.ceil(seconds / 60);
       return { error: 'blocked', message: `Trop de tentatives. Réessaie dans ${minutes} minute${minutes > 1 ? 's' : ''}.` };
-    }
-    if (reason === 'expired') {
-      reply.code(401);
-      return { error: 'preauth_expired', message: 'Délai dépassé. Saisis à nouveau ton mot de passe.' };
     }
     reply.code(401);
     return { error: 'invalid_credentials', message: 'Identifiants incorrects.' };
@@ -209,7 +204,6 @@ export async function buildApp(deps: AppDeps): Promise<App> {
 
   fastify.get('/api/auth/me', async (req) => {
     if (sessions.validate(req.cookies[SESSION_COOKIE])) return { authenticated: true, stage: 'done' };
-    if (sessions.validatePreauth(req.cookies[PREAUTH_COOKIE])) return { authenticated: false, stage: 'second-factor' };
     return { authenticated: false, stage: isAdminReady(db) ? 'password' : 'uninitialized' };
   });
 
@@ -219,18 +213,6 @@ export async function buildApp(deps: AppDeps): Promise<App> {
       if (!body.success) return loginFailure(reply, 'invalid');
       const res = await auth.password(body.data.password, ctxOf(req));
       if (!res.ok) return loginFailure(reply, res.reason, res.retryAfterMs);
-      reply.setCookie(PREAUTH_COOKIE, res.token, cookieOpts(PREAUTH_MS, '/api/auth'));
-      return { next: 'second-factor' };
-    }),
-  );
-
-  fastify.post('/api/auth/second-factor', async (req, reply) =>
-    constantTime(async () => {
-      const body = secondFactorSchema.safeParse(req.body);
-      if (!body.success) return loginFailure(reply, 'invalid');
-      const res = auth.secondFactor(req.cookies[PREAUTH_COOKIE], body.data.code, ctxOf(req));
-      if (!res.ok) return loginFailure(reply, res.reason, res.retryAfterMs);
-      reply.clearCookie(PREAUTH_COOKIE, { path: '/api/auth' });
       reply.setCookie(SESSION_COOKIE, res.token, cookieOpts(SESSION_MAX_MS));
       return { ok: true };
     }),

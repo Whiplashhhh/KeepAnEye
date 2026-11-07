@@ -10,7 +10,6 @@ import path from 'node:path';
 import { buildApp } from '../apps/server/src/app.js';
 import { setAdmin } from '../apps/server/src/auth/admin.js';
 import { hashPassword } from '../apps/server/src/auth/password.js';
-import { regenerateRecoveryCodes } from '../apps/server/src/auth/recovery.js';
 import { SessionStore } from '../apps/server/src/auth/sessions.js';
 import { REPO_ROOT } from '../apps/server/src/config.js';
 import type { Config } from '../apps/server/src/config.js';
@@ -19,7 +18,6 @@ import { RealTmuxClient } from '../apps/server/src/tmux/client.js';
 import { PROMPT_DIR, SCREENS } from './demo/screens.js';
 
 export const E2E_PASSWORD = 'e2e-password-correct-horse';
-export const E2E_TOTP_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 
 const mode = process.env.KAE_E2E_MODE === 'demo' ? 'demo' : 'e2e';
 const port = Number(process.env.KAE_E2E_PORT ?? (mode === 'demo' ? 7792 : 7791));
@@ -87,9 +85,8 @@ const config: Config = {
 };
 
 const db = openDb(config.dbFile);
-setAdmin(db, await hashPassword(E2E_PASSWORD), E2E_TOTP_SECRET, Date.now());
-const recovery = regenerateRecoveryCodes(db);
-// A pre-made session for specs that don't test the login itself (TOTP codes are single-use).
+setAdmin(db, await hashPassword(E2E_PASSWORD), Date.now());
+// A pre-made session for specs that don't test the login itself.
 const sessionToken = new SessionStore(db).create({ ip: '127.0.0.1', userAgent: 'playwright' });
 
 if (mode === 'demo') await seedDemo();
@@ -103,7 +100,7 @@ const app = await buildApp({
   logger: true,
 });
 await app.fastify.listen({ host: '127.0.0.1', port });
-writeFileSync(path.join(root, 'state.json'), JSON.stringify({ origin, sessionToken, recovery, socket }));
+writeFileSync(path.join(root, 'state.json'), JSON.stringify({ origin, sessionToken, socket }));
 console.log(`[${mode}] Keep An Eye on ${origin} (tmux socket ${socket})`);
 
 const shutdown = async () => {
@@ -227,11 +224,11 @@ async function seedDemo() {
   const rows: [number, string, string, string, unknown][] = [
     [now - 30 * 60 * min, 'admin.init', 'cli', '', null],
     [now - 29 * 60 * min, 'login.password_ok', '100.101.12.4', desktop, null],
-    [now - 29 * 60 * min + 5000, 'login.success', '100.101.12.4', desktop, { method: 'totp' }],
+    [now - 29 * 60 * min + 5000, 'login.success', '100.101.12.4', desktop, { method: 'password' }],
     [now - 27 * 60 * min, 'session.created', '100.101.12.4', desktop, { name: 'docs-site' }],
     [now - 3 * 60 * min, 'login.password_failed', '100.88.3.17', iphone, null],
     [now - 3 * 60 * min + 9000, 'login.password_ok', '100.88.3.17', iphone, null],
-    [now - 3 * 60 * min + 15000, 'login.success', '100.88.3.17', iphone, { method: 'totp' }],
+    [now - 3 * 60 * min + 15000, 'login.success', '100.88.3.17', iphone, { method: 'password' }],
     [now - 96 * min, 'session.created', '100.88.3.17', iphone, { name: 'scraper' }],
     [now - 22 * min, 'session.created', '100.101.12.4', desktop, { name: 'webapp' }],
     [now - 10 * min, 'session.created', '100.101.12.4', desktop, { name: 'api-refactor' }],

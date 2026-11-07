@@ -22,14 +22,14 @@ import { GridView, parseGrid } from './pages/GridView';
 import { SessionView } from './pages/SessionView';
 import { SettingsPage } from './pages/Settings';
 
-type AuthState = { status: 'loading' } | { status: 'in' } | { status: 'out'; stage: 'password' | 'second-factor' | 'uninitialized' };
+type AuthState = { status: 'loading' } | { status: 'in' } | { status: 'out'; stage: 'password' | 'uninitialized' };
 
 export function App() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
 
   const check = useCallback(async () => {
     try {
-      const me = await api<{ authenticated: boolean; stage: 'password' | 'second-factor' | 'uninitialized' | 'done' }>('/api/auth/me');
+      const me = await api<{ authenticated: boolean; stage: 'password' | 'uninitialized' | 'done' }>('/api/auth/me');
       setAuth(me.authenticated ? { status: 'in' } : { status: 'out', stage: me.stage === 'done' ? 'password' : me.stage });
     } catch {
       setAuth({ status: 'out', stage: 'password' });
@@ -48,7 +48,7 @@ export function App() {
       </div>
     );
   }
-  if (auth.status === 'out') return <LoginPage initialStage={auth.stage} onDone={() => setAuth({ status: 'in' })} />;
+  if (auth.status === 'out') return <LoginPage stage={auth.stage} onDone={() => setAuth({ status: 'in' })} />;
   return (
     <LiveProvider onExpired={() => setAuth({ status: 'out', stage: 'password' })}>
       <Shell onLoggedOut={() => setAuth({ status: 'out', stage: 'password' })} />

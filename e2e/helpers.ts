@@ -5,7 +5,6 @@ import type { BrowserContext } from '@playwright/test';
 export interface ServerState {
   origin: string;
   sessionToken: string;
-  recovery: string[];
   socket: string;
 }
 

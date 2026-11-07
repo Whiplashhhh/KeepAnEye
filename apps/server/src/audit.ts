@@ -3,10 +3,7 @@ import type { DB } from './db.js';
 
 export type AuditEvent =
   | 'login.password_failed'
-  | 'login.password_ok'
-  | 'login.second_factor_failed'
   | 'login.success'
-  | 'login.recovery_code_used'
   | 'login.blocked'
   | 'logout'
   | 'logout.all'
@@ -20,7 +17,6 @@ export type AuditEvent =
   | 'ssh_host.deleted'
   | 'terminal.opened'
   | 'admin.init'
-  | 'admin.reset_2fa'
   | 'admin.reset_password';
 
 export interface AuditContext {

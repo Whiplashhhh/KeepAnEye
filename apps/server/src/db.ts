@@ -80,6 +80,12 @@ const MIGRATIONS: string[] = [
     created_at INTEGER NOT NULL
   );
   `,
+  // Two-factor authentication removed: access goes through Tailscale only.
+  `
+  DROP TABLE recovery_codes;
+  DROP TABLE preauth;
+  UPDATE admin SET totp_secret = NULL, totp_last_step = 0;
+  `,
 ];
 
 export function openDb(file: string): DB {

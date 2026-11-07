@@ -204,15 +204,6 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 
 export const passwordLoginSchema = z.object({ password: z.string().min(1).max(1024) });
 
-export const secondFactorSchema = z.object({
-  code: z
-    .string()
-    .trim()
-    .min(6)
-    .max(32)
-    .transform((s) => s.replace(/[\s-]/g, '')),
-});
-
 export const createSessionSchema = z.object({
   name: sessionNameSchema,
   template: z.string().min(1).max(40),

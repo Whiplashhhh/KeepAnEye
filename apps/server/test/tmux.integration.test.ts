@@ -8,7 +8,6 @@ import type { App } from '../src/app.js';
 import { buildApp } from '../src/app.js';
 import { setAdmin } from '../src/auth/admin.js';
 import { hashPassword } from '../src/auth/password.js';
-import { generateTotpSecret, totpAt } from '../src/auth/totp.js';
 import { RealTmuxClient, TmuxNoServerError } from '../src/tmux/client.js';
 import { memDb, ORIGIN, testConfig } from './helpers.js';
 
@@ -31,8 +30,7 @@ describe.skipIf(!hasTmux())('real tmux', () => {
 
   beforeAll(async () => {
     const db = memDb();
-    const secret = generateTotpSecret();
-    setAdmin(db, await hashPassword('integration-password'), secret, Date.now());
+    setAdmin(db, await hashPassword('integration-password'), Date.now());
     app = await buildApp({
       config: testConfig({ tmuxSocket: SOCKET }),
       db,
@@ -45,10 +43,8 @@ describe.skipIf(!hasTmux())('real tmux', () => {
     await app.fastify.listen({ host: '127.0.0.1', port: 0 });
     const addr = app.fastify.server.address() as { port: number };
     base = `127.0.0.1:${addr.port}`;
-    const r1 = await app.fastify.inject({ method: 'POST', url: '/api/auth/password', payload: { password: 'integration-password' }, headers: { origin: ORIGIN } });
-    const pre = r1.cookies.find((c) => c.name === 'kae_pre')!.value;
-    const r2 = await app.fastify.inject({ method: 'POST', url: '/api/auth/second-factor', payload: { code: totpAt(secret, Date.now()) }, cookies: { kae_pre: pre }, headers: { origin: ORIGIN } });
-    sid = r2.cookies.find((c) => c.name === 'kae_sid')!.value;
+    const r = await app.fastify.inject({ method: 'POST', url: '/api/auth/password', payload: { password: 'integration-password' }, headers: { origin: ORIGIN } });
+    sid = r.cookies.find((c) => c.name === 'kae_sid')!.value;
   });
 
   afterAll(async () => {

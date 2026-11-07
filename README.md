@@ -36,8 +36,8 @@ Toutes les captures (mobile et bureau, sombre et clair) sont dans [`docs/screens
 L'appli donne un shell sur le serveur : elle est verrouillée même derrière Tailscale.
 
 - Écoute **uniquement sur 127.0.0.1** (elle refuse de démarrer sur une autre adresse) ; exposée seulement à ton tailnet par `tailscale serve`.
-- **Mono-utilisateur, deux facteurs** : mot de passe (argon2id) puis code TOTP (Google Authenticator, Aegis, 2FAS…), fenêtre ±30 s, **anti-rejeu**. 10 codes de secours hachés à usage unique. Compte créé **uniquement en CLI** (`npm run admin:init`) : aucune page d'inscription.
-- Sessions côté serveur (SQLite, identifiant 256 bits stocké haché), cookie `HttpOnly; Secure; SameSite=Strict`, expiration après 12 h d'inactivité et 7 jours maximum, bouton « Tout déconnecter ».
+- **Mono-utilisateur, mot de passe seul** (argon2id) : l'appli n'est joignable que par Tailscale, qui fait office de second facteur. Compte créé **uniquement en CLI** (`npm run admin:init`) : aucune page d'inscription.
+- Sessions côté serveur (SQLite, identifiant 256 bits stocké haché), cookie `HttpOnly; Secure; SameSite=Strict`, expiration après 30 jours d'inactivité et 90 jours maximum, bouton « Tout déconnecter ».
 - Blocage progressif des tentatives (par IP et global), réponses de connexion à durée constante.
 - Vérification de l'en-tête `Origin` sur chaque requête qui modifie quelque chose et à chaque ouverture de WebSocket ; WebSocket refusé sans session valide.
 - CSP stricte (aucun script inline), `frame-ancestors 'none'`, `Referrer-Policy: no-referrer`, etc. Aucune ressource externe : polices et code sont bundlés.
@@ -100,7 +100,6 @@ Comme sans Docker : voir les étapes [6](#6-exposer-sur-le-tailnet-avec-tailscal
 | Journaux | `docker compose logs -f` |
 | Mettre à jour | `git pull && docker compose up -d --build` |
 | Redémarrer | `docker compose restart` (les sessions tmux ne bougent pas) |
-| Réinitialiser la 2FA | `docker compose exec keep-an-eye npm run admin:reset-2fa` |
 | Nouveau mot de passe | `docker compose exec keep-an-eye npm run admin:reset-password` |
 | Modèles personnalisés | décommente la ligne `config/templates.json` dans `compose.yml` |
 
@@ -147,7 +146,7 @@ Le seul réglage indispensable est **`KAE_ALLOWED_ORIGINS`** : l'URL exacte sous
 npm run admin:init
 ```
 
-La commande demande un mot de passe (12 caractères minimum, deux fois), affiche un **QR code** dans le terminal (et l'URI `otpauth://` si tu préfères la saisir), demande un premier code pour valider, puis affiche **10 codes de secours** : garde-les hors ligne, ils ne seront plus affichés.
+La commande demande un mot de passe (12 caractères minimum, deux fois).
 
 ### 5. Service systemd utilisateur
 
@@ -340,7 +339,6 @@ Pour restaurer : arrête le service, remplace `data/keep-an-eye.db` par la sauve
 |---|---|
 | « Origine de la requête non autorisée » à la connexion | `KAE_ALLOWED_ORIGINS` doit être exactement l'URL affichée dans la barre d'adresse (`https://…ts.net`, sans `/` final), puis `systemctl --user restart keep-an-eye`. |
 | « Aucun compte n'est encore configuré » | Lance `npm run admin:init` sur le serveur. |
-| Code TOTP toujours refusé | Vérifie l'heure du serveur (`timedatectl`) et du téléphone. Un même code ne peut servir qu'une fois : attends le suivant. En dernier recours : `npm run admin:reset-2fa`. |
 | Mot de passe oublié | `npm run admin:reset-password` (ferme toutes les sessions ouvertes). |
 | « Trop de tentatives » | Blocage temporaire après des échecs ; il se lève seul. Un redémarrage du service le remet à zéro. |
 | Aucune session listée alors que tmux tourne | L'appli doit tourner sous le **même utilisateur** que tmux. Si tu utilises un socket nommé (`tmux -L xxx`), mets-le dans `KAE_TMUX_SOCKET`. |

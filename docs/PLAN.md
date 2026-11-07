@@ -36,10 +36,8 @@ une implémentation réelle (`execFile`, jamais de shell) et une factice.
 
 | Table | Colonnes principales |
 |---|---|
-| `admin` | `id=1`, `password_hash` (argon2id), `totp_secret` (base32), `totp_last_step` (anti-rejeu), `created_at` |
-| `recovery_codes` | `id`, `code_hash` (sha256 + sel), `used_at` |
+| `admin` | `id=1`, `password_hash` (argon2id), `created_at` (colonnes `totp_*` inutilisées depuis le retrait de la 2FA) |
 | `sessions` | `id_hash` (sha256 de l'identifiant 256 bits), `created_at`, `last_seen_at`, `ip`, `user_agent` |
-| `preauth` | `id_hash`, `created_at`, `ip` (étape mot de passe validée, 5 min) |
 | `audit_log` | `id`, `ts`, `event`, `ip`, `user_agent`, `detail` (JSON) |
 | `claude_state` | `session` (nom tmux), `status`, `claude_session_id`, `cwd`, `transcript_path`, `last_event`, `last_message`, `updated_at` |
 | `activity` | `id`, `ts`, `session`, `kind`, `status`, `text` (fil d'activité) |
@@ -55,8 +53,7 @@ Toute méthode autre que `GET`/`HEAD` exige un en-tête `Origin` autorisé.
 |---|---|---|
 | GET | `/api/health` | Vivacité (public) |
 | GET | `/api/auth/me` | `{ authenticated, stage }` |
-| POST | `/api/auth/password` | Étape 1 → cookie `kae_pre` |
-| POST | `/api/auth/second-factor` | Étape 2 (TOTP ou code de secours) → cookie `kae_sid` |
+| POST | `/api/auth/password` | Mot de passe → cookie `kae_sid` |
 | POST | `/api/auth/logout` | Ferme la session courante |
 | POST | `/api/auth/logout-all` | Ferme toutes les sessions |
 | GET | `/api/sessions` | Sessions tmux + fenêtres + aperçu + statut Claude |

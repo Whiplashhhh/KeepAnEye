@@ -24,7 +24,6 @@
     "e2e": "playwright test --project=e2e",
     "screenshots": "playwright test --project=screenshots",
     "admin:init": "node apps/server/dist/cli.js init",
-    "admin:reset-2fa": "node apps/server/dist/cli.js reset-2fa",
     "admin:reset-password": "node apps/server/dist/cli.js reset-password"
   },
   "devDependencies": {

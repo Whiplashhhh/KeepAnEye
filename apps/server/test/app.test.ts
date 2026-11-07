@@ -8,8 +8,6 @@ import { buildApp } from '../src/app.js';
 import { setAdmin } from '../src/auth/admin.js';
 import { hashPassword } from '../src/auth/password.js';
 import { DEFAULT_RATE_LIMIT } from '../src/auth/rateLimit.js';
-import { regenerateRecoveryCodes } from '../src/auth/recovery.js';
-import { generateTotpSecret, totpAt } from '../src/auth/totp.js';
 import type { DB } from '../src/db.js';
 import { FakeTmuxClient } from '../src/tmux/fake.js';
 import { memDb, ORIGIN, testConfig } from './helpers.js';
@@ -20,8 +18,6 @@ let passwordHash: string;
 let app: App;
 let db: DB;
 let tmux: FakeTmuxClient;
-let secret: string;
-let recovery: string[];
 let config: ReturnType<typeof testConfig>;
 let clones: RepoRef[];
 let cloneError: string | null;
@@ -29,9 +25,7 @@ let cloneError: string | null;
 beforeEach(async () => {
   passwordHash ??= await hashPassword(PASSWORD);
   db = memDb();
-  secret = generateTotpSecret();
-  setAdmin(db, passwordHash, secret, Date.now());
-  recovery = regenerateRecoveryCodes(db);
+  setAdmin(db, passwordHash, Date.now());
   tmux = new FakeTmuxClient();
   config = testConfig();
   clones = [];
@@ -76,33 +70,29 @@ async function post(url: string, body: unknown, cookies: Record<string, string> 
 }
 
 async function login(): Promise<string> {
-  const r1 = await post('/api/auth/password', { password: PASSWORD });
-  expect(r1.statusCode).toBe(200);
-  const pre = cookieFrom(r1, 'kae_pre')!;
-  const r2 = await post('/api/auth/second-factor', { code: totpAt(secret, Date.now()) }, { kae_pre: pre });
-  expect(r2.statusCode).toBe(200);
-  return cookieFrom(r2, 'kae_sid')!;
+  const r = await post('/api/auth/password', { password: PASSWORD });
+  expect(r.statusCode).toBe(200);
+  return cookieFrom(r, 'kae_sid')!;
 }
 
 describe('login flow', () => {
-  it('password then TOTP yields a hardened session cookie', async () => {
-    const r1 = await post('/api/auth/password', { password: PASSWORD });
-    expect(r1.json()).toEqual({ next: 'second-factor' });
-    const pre = r1.cookies.find((c) => c.name === 'kae_pre')!;
-    expect(pre).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict', path: '/api/auth' });
-
-    const me = await app.fastify.inject({ url: '/api/auth/me', cookies: { kae_pre: pre.value } });
-    expect(me.json()).toEqual({ authenticated: false, stage: 'second-factor' });
-
-    const r2 = await post('/api/auth/second-factor', { code: totpAt(secret, Date.now()) }, { kae_pre: pre.value });
-    expect(r2.statusCode).toBe(200);
-    const sid = r2.cookies.find((c) => c.name === 'kae_sid')!;
-    expect(sid).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict', path: '/' });
+  it('the password alone yields a long-lived hardened session cookie', async () => {
+    const r = await post('/api/auth/password', { password: PASSWORD });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ ok: true });
+    const sid = r.cookies.find((c) => c.name === 'kae_sid')!;
+    expect(sid).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict', path: '/', maxAge: 90 * 24 * 3600 });
     expect(Buffer.from(sid.value, 'base64url')).toHaveLength(32);
 
-    const me2 = await app.fastify.inject({ url: '/api/auth/me', cookies: { kae_sid: sid.value } });
-    expect(me2.json()).toEqual({ authenticated: true, stage: 'done' });
-    expect(app.audit.list().map((e) => e.event)).toEqual(['login.success', 'login.password_ok']);
+    const me = await app.fastify.inject({ url: '/api/auth/me', cookies: { kae_sid: sid.value } });
+    expect(me.json()).toEqual({ authenticated: true, stage: 'done' });
+    expect(app.audit.list().map((e) => e.event)).toEqual(['login.success']);
+  });
+
+  it('the former second-factor route is gone', async () => {
+    const r = await post('/api/auth/second-factor', { code: '123456' });
+    expect(r.statusCode).toBe(401);
+    expect(r.cookies.find((c) => c.name === 'kae_sid')).toBeUndefined();
   });
 
   it('wrong password: generic error, audited', async () => {
@@ -110,31 +100,6 @@ describe('login flow', () => {
     expect(r.statusCode).toBe(401);
     expect(r.json().message).toBe('Identifiants incorrects.');
     expect(app.audit.list()[0]!.event).toBe('login.password_failed');
-  });
-
-  it('TOTP is never accepted without the password step', async () => {
-    const r = await post('/api/auth/second-factor', { code: totpAt(secret, Date.now()) });
-    expect(r.statusCode).toBe(401);
-    expect(r.json().error).toBe('preauth_expired');
-  });
-
-  it('a TOTP code cannot be replayed', async () => {
-    const code = totpAt(secret, Date.now());
-    const pre1 = cookieFrom(await post('/api/auth/password', { password: PASSWORD }), 'kae_pre')!;
-    expect((await post('/api/auth/second-factor', { code }, { kae_pre: pre1 })).statusCode).toBe(200);
-    const pre2 = cookieFrom(await post('/api/auth/password', { password: PASSWORD }), 'kae_pre')!;
-    const replay = await post('/api/auth/second-factor', { code }, { kae_pre: pre2 });
-    expect(replay.statusCode).toBe(401);
-    expect(replay.json().error).toBe('invalid_credentials');
-  });
-
-  it('recovery code works once instead of TOTP', async () => {
-    const pre = cookieFrom(await post('/api/auth/password', { password: PASSWORD }), 'kae_pre')!;
-    const ok = await post('/api/auth/second-factor', { code: recovery[0] }, { kae_pre: pre });
-    expect(ok.statusCode).toBe(200);
-    const pre2 = cookieFrom(await post('/api/auth/password', { password: PASSWORD }), 'kae_pre')!;
-    expect((await post('/api/auth/second-factor', { code: recovery[0] }, { kae_pre: pre2 })).statusCode).toBe(401);
-    expect(app.audit.list().some((e) => e.event === 'login.recovery_code_used')).toBe(true);
   });
 
   it('locks out after repeated failures, even with the right password', async () => {
@@ -163,12 +128,13 @@ describe('login flow', () => {
 
   it('logout-all revokes every session', async () => {
     const a = await login();
-    const b = await login().catch(() => null); // second code in the same period is a replay
-    expect(b).toBeNull();
+    const b = await login();
     const r = await post('/api/auth/logout-all', {}, { kae_sid: a });
-    expect(r.json()).toMatchObject({ ok: true, closed: 1 });
-    const after = await app.fastify.inject({ url: '/api/sessions', cookies: { kae_sid: a } });
-    expect(after.statusCode).toBe(401);
+    expect(r.json()).toMatchObject({ ok: true, closed: 2 });
+    for (const sid of [a, b]) {
+      const after = await app.fastify.inject({ url: '/api/sessions', cookies: { kae_sid: sid } });
+      expect(after.statusCode).toBe(401);
+    }
   });
 });
 
