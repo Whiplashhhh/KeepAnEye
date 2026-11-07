@@ -1,7 +1,7 @@
 import type { SessionInfo } from '@kae/shared';
 import { SESSION_NAME_RE } from '@kae/shared';
 import * as Dialog from '@radix-ui/react-dialog';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { api } from '../lib/api';
 import { useLive } from '../lib/live';
@@ -23,6 +23,21 @@ export function RenameSessionDialog({
   const toast = useToast();
   const { sessions, refresh } = useLive();
   const [, navigate] = useLocation();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const current = session?.name ?? '';
+
+  // Start from the current name so a detail can simply be appended; the caret goes at the end.
+  useEffect(() => {
+    if (!open) return;
+    setName(current);
+    setError(null);
+    const t = setTimeout(() => {
+      const el = inputRef.current;
+      if (el) el.setSelectionRange(el.value.length, el.value.length);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [open, current]);
+
   if (!session) return null;
 
   const valid = SESSION_NAME_RE.test(name);
@@ -49,11 +64,7 @@ export function RenameSessionDialog({
   return (
     <Dialog.Root
       open={open}
-      onOpenChange={(o) => {
-        if (o) setName(session.name);
-        else setError(null);
-        onOpenChange(o);
-      }}
+      onOpenChange={onOpenChange}
     >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 animate-fade-in bg-scrim backdrop-blur-[2px]" />
@@ -68,6 +79,7 @@ export function RenameSessionDialog({
             }}
           >
             <input
+              ref={inputRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
               aria-label="Nouveau nom"
@@ -75,6 +87,7 @@ export function RenameSessionDialog({
               autoCapitalize="off"
               spellCheck={false}
               maxLength={40}
+              onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
               autoFocus
               aria-invalid={!valid || taken}
               className={cx(
