@@ -4,7 +4,7 @@ import { Link, useLocation } from 'wouter';
 import { cx } from './ui';
 
 const ITEMS: { href: string; label: string; icon: LucideIcon; match: (p: string) => boolean }[] = [
-  { href: '/', label: 'Sessions', icon: LayoutList, match: (p) => p === '/' || p.startsWith('/s/') },
+  { href: '/', label: 'Sessions', icon: LayoutList, match: (p) => p === '/' || p.startsWith('/s/') || p.startsWith('/grid') },
   { href: '/activity', label: 'Activité', icon: Activity, match: (p) => p.startsWith('/activity') },
   { href: '/settings', label: 'Réglages', icon: Settings, match: (p) => p.startsWith('/settings') },
 ];

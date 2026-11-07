@@ -1,6 +1,7 @@
-import { ArrowLeft, Bot, Pencil, ScrollText, SearchX, Server, SquareTerminal, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bot, Columns2, Pencil, ScrollText, SearchX, Server, SquareTerminal, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
+import { gridHref } from './GridView';
 import { CloseSessionDialog } from '../components/CloseSession';
 import { RenameSessionDialog } from '../components/RenameSession';
 import { Keybar } from '../components/Keybar';
@@ -10,6 +11,7 @@ import { Timeline } from '../components/Timeline';
 import { Button, EmptyState, IconButton, Segmented, Skeleton, StatusBadge, StatusDot, cx } from '../components/ui';
 import { STATUS } from '../lib/status';
 import { useLive } from '../lib/live';
+import { useIsDesktop } from '../lib/media';
 
 /**
  * Tracks the visual viewport while the virtual keyboard is open, so the terminal shrinks above it.
@@ -34,17 +36,6 @@ function useKeyboardViewport(): { height: number; top: number } | null {
   return vv;
 }
 
-function useIsDesktop(): boolean {
-  const [d, setD] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const on = () => setD(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return d;
-}
-
 function useCoarsePointer(): boolean {
   return useState(() => window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 640px)').matches)[0];
 }
@@ -56,6 +47,7 @@ export function SessionView({ name }: { name: string }) {
   const [closing, setClosing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const termRef = useRef<TerminalHandle>(null);
+  const [, navigate] = useLocation();
   const desktop = useIsDesktop();
   const coarse = useCoarsePointer();
   const vv = useKeyboardViewport();
@@ -163,6 +155,14 @@ export function SessionView({ name }: { name: string }) {
           >
             {tab === 'terminal' ? <ScrollText className="size-5" /> : <SquareTerminal className="size-5" />}
           </IconButton>
+        )}
+        {session && (
+          <span className="hidden lg:block">
+            <Button variant="ghost" onClick={() => navigate(gridHref([name]))} title="Afficher plusieurs terminaux côte à côte">
+              <Columns2 className="size-4" aria-hidden />
+              Diviser
+            </Button>
+          </span>
         )}
         {session?.manageable && (
           <>

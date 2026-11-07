@@ -18,6 +18,7 @@ import { useTheme } from './lib/theme';
 import { ActivityPage } from './pages/Activity';
 import { AuditPage } from './pages/Audit';
 import { LoginPage } from './pages/Login';
+import { GridView, parseGrid } from './pages/GridView';
 import { SessionView } from './pages/SessionView';
 import { SettingsPage } from './pages/Settings';
 
@@ -178,6 +179,7 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
         )}
         <Switch>
           <Route path="/s/:name">{(p) => <SessionView name={decodeURIComponent(p.name)} />}</Route>
+          <Route path="/grid/:names?">{(p) => <GridView names={parseGrid(p.names)} onNew={openNew} />}</Route>
           <Route path="/activity">
             <ActivityPage />
           </Route>

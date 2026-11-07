@@ -226,3 +226,44 @@ test('Shift+Enter sends ESC+CR (newline in Claude Code), Enter stays a plain CR'
   await page.getByRole('alertdialog').getByRole('button', { name: 'Fermer e2e-shift' }).click();
   await expect(page.getByText('Session « e2e-shift » fermée')).toBeVisible();
 });
+
+test('grid: two terminals side by side on desktop', async ({ page }) => {
+  const create = async (n: string) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Nouvelle session (N)' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Nouvelle session' });
+    await dialog.getByText('Terminal', { exact: true }).click();
+    await dialog.getByLabel('Nom').fill(n);
+    await dialog.getByRole('button', { name: 'Créer la session' }).click();
+    await expect(page).toHaveURL(new RegExp(`/s/${n}$`));
+  };
+  await create('grid-a');
+  await create('grid-b');
+
+  // Split from the session view, then pick the second session for the empty slot.
+  await page.getByRole('button', { name: 'Diviser' }).click();
+  await expect(page).toHaveURL(/\/grid\/grid-b$/);
+  await page.getByRole('region', { name: 'Ajouter un terminal' }).getByRole('button', { name: /grid-a/ }).click();
+  await expect(page).toHaveURL(/\/grid\/grid-b,grid-a$/);
+
+  const a = page.getByRole('region', { name: 'Session grid-a' });
+  const b = page.getByRole('region', { name: 'Session grid-b' });
+  await expect(a.locator('.xterm-rows')).toContainText('$', { timeout: 10_000 });
+  await expect(b.locator('.xterm-rows')).toContainText('$', { timeout: 10_000 });
+
+  // Each pane talks to its own session.
+  await a.getByTestId('terminal').click();
+  await page.keyboard.type('echo left-$((2*3))');
+  await page.keyboard.press('Enter');
+  await expect(a.locator('.xterm-rows')).toContainText('left-6');
+  await expect(b.locator('.xterm-rows')).not.toContainText('left-6');
+
+  // Removing a pane leaves the session running and brings the picker back.
+  await b.getByRole('button', { name: 'Retirer grid-b de la grille' }).click();
+  await expect(page).toHaveURL(/\/grid\/grid-a$/);
+  await expect(page.getByRole('region', { name: 'Ajouter un terminal' })).toContainText('grid-b');
+
+  // Phones get the plain session view instead.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page).toHaveURL(/\/s\/grid-a$/);
+});

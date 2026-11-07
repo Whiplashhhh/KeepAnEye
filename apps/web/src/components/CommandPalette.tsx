@@ -1,8 +1,9 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import type { LucideIcon } from 'lucide-react';
-import { Activity, Bot, Keyboard, LogOut, Moon, Plus, Search, Settings, SquareTerminal, Sun } from 'lucide-react';
+import { Activity, Bot, Keyboard, LayoutGrid, LogOut, Moon, Plus, Search, Settings, SquareTerminal, Sun } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
+import { lastGridHref } from '../pages/GridView';
 import { useLive } from '../lib/live';
 import { STATUS } from '../lib/status';
 import { useTheme } from '../lib/theme';
@@ -37,7 +38,7 @@ export function CommandPalette({
 }) {
   const { sessions } = useLive();
   const { resolved, toggle } = useTheme();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
@@ -65,6 +66,19 @@ export function CommandPalette({
     }));
     list.push(
       { id: 'new', label: 'Nouvelle session', icon: Plus, group: 'Actions', run: close(onNewSession), hint: 'N' },
+      ...(window.matchMedia('(min-width: 1024px)').matches
+        ? [
+            {
+              id: 'grid',
+              label: 'Vue grille (plusieurs terminaux)',
+              icon: LayoutGrid,
+              group: 'Actions',
+              run: close(() =>
+                navigate(lastGridHref(location.startsWith('/s/') ? decodeURIComponent(location.slice(3)) : undefined)),
+              ),
+            },
+          ]
+        : []),
       { id: 'activity', label: 'Voir l’activité', icon: Activity, group: 'Actions', run: close(() => navigate('/activity')) },
       { id: 'settings', label: 'Réglages', icon: Settings, group: 'Actions', run: close(() => navigate('/settings')) },
       {
@@ -78,7 +92,7 @@ export function CommandPalette({
       { id: 'logout', label: 'Se déconnecter', icon: LogOut, group: 'Actions', run: close(onLogout) },
     );
     return list;
-  }, [sessions, resolved, toggle, navigate, onNewSession, onShortcuts, onLogout, onOpenChange]);
+  }, [sessions, location, resolved, toggle, navigate, onNewSession, onShortcuts, onLogout, onOpenChange]);
 
   const filtered = useMemo(() => {
     const q = normalize(query.trim());
