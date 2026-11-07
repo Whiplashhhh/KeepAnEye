@@ -8,16 +8,16 @@ describe('readPane', () => {
   it('reads busy, waiting and idle from the bottom of the pane', () => {
     expect(readPane(['✻ Réflexion… (12s · esc to interrupt)', '', '> ']).busy).toBe(true);
     const dialog = ['Bash command', '', ' Do you want to proceed?', ' ❯ 1. Yes', '   2. No', ' Esc to cancel'];
-    expect(readPane(dialog)).toEqual({ busy: false, waiting: 'Do you want to proceed?' });
+    expect(readPane(dialog)).toEqual({ busy: false, background: false, waiting: 'Do you want to proceed?' });
     const ask = ['Quelle base de données ?', '', '❯ 1. PostgreSQL', '  2. SQLite', '  3. Type something.', 'Enter to select · Esc to cancel'];
-    expect(readPane(ask)).toEqual({ busy: false, waiting: 'Quelle base de données ?' });
+    expect(readPane(ask)).toEqual({ busy: false, background: false, waiting: 'Quelle base de données ?' });
     const perm = ['Do you want to proceed?', '❯ 1. Yes, and don’t ask again for npm commands', '  2. Yes', '  3. No, and tell Claude what to do differently'];
     expect(readPane(perm).waiting).toBe('Do you want to proceed?');
     expect(readPane(['Voici les étapes :', '1. Installer', '2. Lancer', '> ']).waiting).toBeNull();
     // The conversation quoting the dialog's words is not a dialog.
     const quoted = ['- « Esc to cancel » dans le pied de la boîte de dialogue ;', '- « Type something » (l’option de saisie libre) ;', '❯ ', '⏵⏵ bypass permissions on'];
     expect(readPane(quoted).waiting).toBeNull();
-    expect(readPane(['> ', '? for shortcuts'])).toEqual({ busy: false, waiting: null });
+    expect(readPane(['> ', '? for shortcuts'])).toEqual({ busy: false, background: false, waiting: null });
   });
 
   it('sees the spinner on a narrow (phone) terminal', () => {
@@ -29,6 +29,26 @@ describe('readPane', () => {
     expect(readPane([...todos, ...footer, '', ...footer]).busy).toBe(true);
     expect(readPane(['✻ Worked for 1m 3s', ...footer]).busy).toBe(false);
     expect(readPane(['- Une liste… et puis', ...footer]).busy).toBe(false);
+  });
+
+  it('sees subagents and scripts still running in the background', () => {
+    // Real screen: the main loop is back at its prompt while a subagent runs.
+    const screen = [
+      '● Agent(Mois complet et fermetures)',
+      '  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)',
+      '● Le thème suivant tourne.',
+      '────────────────',
+      '❯ ok pour D-121, continue',
+      '────────────────',
+      '  ⏵⏵ bypass permissions on (shift+tab to cycle) · ↓ to manage',
+      '  ● main',
+      '  ○ general-purpose  Inspection des conventions openapi.json      3m 8s · ↓ 124.9k tokens',
+    ];
+    expect(readPane(screen)).toEqual({ busy: false, background: true, waiting: null });
+    expect(readPane(screen.slice(0, -2)).background).toBe(true); // footer hint alone
+    expect(readPane([...screen.slice(0, -3), '  ● main', screen.at(-1)!]).background).toBe(true); // task row alone
+    // The transcript line about a backgrounded agent is history, not a running task.
+    expect(readPane([...screen.slice(0, 6), '  ⏵⏵ bypass permissions on (shift+tab to cycle)']).background).toBe(false);
   });
 
   it('ignores old scrollback', () => {
@@ -75,6 +95,26 @@ describe('PaneMonitor', () => {
     await mon.poll();
     expect(status()).toBe('done');
     expect(tracker.activity().map((a) => a.status)).toEqual(['done', 'waiting', 'working']);
+  });
+
+  it('stays working while background tasks run after the main loop stops', async () => {
+    screen('✻ Thinking… (3s · esc to interrupt)');
+    await mon.poll();
+    const idleWithTasks = ['> ', '⏵⏵ bypass permissions on (shift+tab to cycle) · ↓ to manage', '● main', '○ bash  npm test   12s · ↓ 1.2k tokens'];
+    screen(...idleWithTasks);
+    await mon.poll();
+    await mon.poll();
+    await mon.poll();
+    expect(status()).toBe('working');
+    screen('> ', '⏵⏵ bypass permissions on (shift+tab to cycle)');
+    await mon.poll();
+    await mon.poll();
+    expect(status()).toBe('done');
+    // Back to work only because of background tasks (e.g. after a restart): working again.
+    screen(...idleWithTasks);
+    await mon.poll();
+    expect(status()).toBe('working');
+    expect(tracker.get('web')?.lastMessage).toBe('Tâches en arrière-plan');
   });
 
   it('leaves sessions alone once a real hook event arrived', async () => {

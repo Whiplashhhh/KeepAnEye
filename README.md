@@ -257,6 +257,8 @@ Si `entire enable` échoue après le clonage, le dossier est quand même là : l
 | `StopFailure`, ou processus arrêté avec un code d'erreur | Erreur |
 | `SessionStart`, `SessionEnd` | Inactif |
 
+Sans hooks, l'écran de Claude est lu : sablier → Travaille, boîte de choix → T'attend, invite au repos → Terminé. Tant que des sous-agents ou des scripts tournent encore en arrière-plan (« ↓ to manage » en bas de l'écran), la session reste à Travaille.
+
 ## Modèles de session
 
 Les modèles sont dans [`config/templates.json`](config/templates.json) (ou le fichier pointé par `KAE_TEMPLATES_FILE`) et sont relus à chaque ouverture de la feuille « Nouvelle session ». La commande est un **tableau d'arguments** (jamais interprété par un shell) avec des jetons remplacés après validation :

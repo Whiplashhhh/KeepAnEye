@@ -25,9 +25,18 @@ const CURSOR = /^[\s│┃]*[❯>]\s*\d+\.\s+\S/;
 // Only real dialog lines count: the conversation itself may well quote these words (a bullet, a quote…).
 const TYPE_SOMETHING = /^[\s│┃]*[❯>]?\s*\d+\.\s+type something/i;
 const CANCEL = /^[\s│┃]*(enter to select|esc to cancel)\b/i;
+// Background work (subagents, `run_in_background` scripts) keeps going after the main loop is back at its
+// prompt. Claude Code then ends its footer with "· ↓ to manage" and lists the tasks under it, each with a
+// running timer ("○ general-purpose  Inspection…   3m 8s · ↓ 124.9k tokens"). The footer hint is anchored at
+// the end of the line: the transcript's "Backgrounded agent (↓ to manage · ctrl+o to expand)" must not count.
+const MANAGE = /(?:^|·)\s*↓ to manage\s*$/u;
+const TASK = /^\s*[○◯◦●◉]\s+\S.*\s\d+[hms](?:\s+\d+[ms])?\s+·\s+[↓↑]\s*[\d.,]+\s*[kKM]?\s+tokens\s*$/u;
 
 export interface PaneReading {
+  /** The main loop is running (spinner). */
   busy: boolean;
+  /** Subagents or scripts still run in the background, even if the main loop is idle. */
+  background: boolean;
   /** Set when a dialog is waiting for the user: its question (or a generic text). */
   waiting: string | null;
 }
@@ -36,18 +45,19 @@ export function readPane(lines: string[]): PaneReading {
   const tail = lines.filter((l) => l.trim() !== '').slice(-TAIL_LINES);
   // The hint may also be wrapped over two lines ("esc to" / "interrupt)").
   const busy = tail.some((l) => SPINNER.test(l)) || BUSY.test(tail.join(' ').replace(/\s+/g, ' '));
-  if (busy) return { busy: true, waiting: null };
+  const background = tail.some((l) => MANAGE.test(l) || TASK.test(l));
+  if (busy) return { busy: true, background, waiting: null };
   const options = tail.filter((l) => OPTION.test(l)).length;
   const dialog =
     tail.some((l) => CANCEL.test(l) || TYPE_SOMETHING.test(l)) || (options >= 2 && tail.some((l) => CURSOR.test(l)));
-  if (!dialog) return { busy: false, waiting: null };
+  if (!dialog) return { busy: false, background, waiting: null };
   const first = tail.findIndex((l) => OPTION.test(l));
   const before = first < 0 ? tail : tail.slice(0, first);
   const q = before
     .map((l) => l.replace(/^[\s│┃]+|[\s│┃]+$/g, ''))
     .filter((l) => l.endsWith('?'))
     .pop();
-  return { busy: false, waiting: q ?? 'Claude attend ta réponse' };
+  return { busy: false, background, waiting: q ?? 'Claude attend ta réponse' };
 }
 
 export const hookedKey = (session: string) => `hooked:${session}`;
@@ -116,6 +126,7 @@ export class PaneMonitor {
     const prev: ClaudeStatus = this.tracker.get(session)?.status ?? 'idle';
     let hook: ClaudeEvent['hook'] | null = null;
     let message: string | null = null;
+    let toolName: string | null = null;
     if (r.waiting) {
       this.quiet.delete(session);
       if (prev !== 'waiting') {
@@ -126,6 +137,13 @@ export class PaneMonitor {
       this.quiet.delete(session);
       if (prev === 'idle' || prev === 'done' || prev === 'error') hook = 'UserPromptSubmit';
       else if (prev === 'waiting') hook = 'PreToolUse';
+    } else if (r.background) {
+      // The main loop is idle but its subagents / scripts are not: the task is not over yet.
+      this.quiet.delete(session);
+      if (prev !== 'working') {
+        hook = 'PreToolUse';
+        toolName = 'Tâches en arrière-plan';
+      }
     } else if (prev === 'working' || prev === 'waiting') {
       const n = (this.quiet.get(session) ?? 0) + 1;
       this.quiet.set(session, n);
@@ -143,7 +161,7 @@ export class PaneMonitor {
       transcriptPath: null,
       cwd: null,
       prompt: null,
-      toolName: null,
+      toolName,
       toolSummary: null,
       message,
       notificationType: null,
