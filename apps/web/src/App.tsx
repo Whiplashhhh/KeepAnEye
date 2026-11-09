@@ -1,18 +1,20 @@
-import { Command, Plus, WifiOff } from 'lucide-react';
+import { Command, PanelLeftClose, PanelLeftOpen, Plus, WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Route, Switch, useLocation } from 'wouter';
-import { Brand } from './components/Brand';
+import { Brand, BrandMark } from './components/Brand';
 import { CommandPalette } from './components/CommandPalette';
 import { HostStrip } from './components/HostStrip';
-import { BottomNav, SideNav } from './components/Nav';
+import { BottomNav, RailNav, SideNav } from './components/Nav';
 import { NewSessionSheet } from './components/NewSession';
 import { SessionList, Summary } from './components/SessionList';
 import { ShortcutsDialog } from './components/Shortcuts';
 import { ViewportProbe } from './components/ViewportProbe';
-import { Button, Kbd, Skeleton } from './components/ui';
+import { Button, IconButton, Kbd, Skeleton } from './components/ui';
 import { api, onUnauthorized } from './lib/api';
 import { updateAttention } from './lib/favicon';
 import { LiveProvider, useLive } from './lib/live';
+import { useIsDesktop } from './lib/media';
+import { useSidebarCollapsed } from './lib/sidebar';
 import { waitingCount } from './lib/status';
 import { useTheme } from './lib/theme';
 import { ActivityPage } from './pages/Activity';
@@ -70,6 +72,8 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
   const [newOpen, setNewOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed();
+  const isDesktop = useIsDesktop();
   const gPressed = useRef(0);
 
   const waiting = sessions ? waitingCount(sessions) : 0;
@@ -120,6 +124,9 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
         case 't':
           toggle();
           break;
+        case 'b':
+          if (isDesktop) toggleSidebar();
+          break;
         case 'g':
           gPressed.current = Date.now();
           break;
@@ -127,47 +134,85 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [sessions, selected, navigate, toggle, newOpen, paletteOpen, helpOpen]);
+  }, [sessions, selected, navigate, toggle, newOpen, paletteOpen, helpOpen, isDesktop, toggleSidebar]);
 
   const inSession = !!selected;
 
   return (
     <div className="h-full lg:flex">
-      {/* Desktop sidebar */}
-      <aside className="hidden h-full w-[400px] shrink-0 flex-col border-r border-line bg-elevated lg:flex" aria-label="Sessions">
-        <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-line px-5">
-          <Brand />
-          <div className="flex items-center gap-1">
+      {/* Desktop sidebar, folded into an icon rail when collapsed */}
+      {sidebarCollapsed ? (
+        <aside className="hidden h-full w-16 shrink-0 flex-col items-center border-r border-line bg-elevated lg:flex" aria-label="Sessions">
+          <div className="flex h-16 w-full shrink-0 items-center justify-center border-b border-line">
+            <BrandMark />
+          </div>
+          <div className="flex flex-col items-center gap-1 pt-3">
             <button
               type="button"
-              onClick={() => setPaletteOpen(true)}
-              className="hidden h-9 items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-[13px] text-faint hover:border-line-strong hover:text-muted xl:inline-flex"
-              aria-label="Palette de commandes (Ctrl+K)"
+              onClick={openNew}
+              aria-label="Nouvelle session (N)"
+              title="Nouvelle session (N)"
+              className="flex size-10 items-center justify-center rounded-md bg-accent text-on-accent transition-colors hover:bg-accent-strong"
             >
-              <Command className="size-3.5" aria-hidden />
-              <Kbd>Ctrl K</Kbd>
+              <Plus className="size-[18px] shrink-0" strokeWidth={2.4} aria-hidden />
             </button>
-            <Button className="h-9 px-3" onClick={openNew} aria-label="Nouvelle session (N)">
-              <Plus className="size-4" aria-hidden />
-              Nouvelle
-            </Button>
+            <IconButton label="Palette de commandes (Ctrl+K)" className="size-10" onClick={() => setPaletteOpen(true)}>
+              <Command className="size-[18px]" aria-hidden />
+            </IconButton>
           </div>
-        </div>
-        <div className="space-y-3 px-4 pb-3 pt-4">
-          <HostStrip host={host} />
-          {sessions && sessions.length > 0 && (
-            <div className="px-1">
-              <Summary sessions={sessions} />
+          <div className="flex-1" />
+          <div className="w-full shrink-0 border-t border-line py-2">
+            <RailNav badge={waiting} />
+            <div className="mt-1 flex justify-center">
+              <IconButton label="Déplier le panneau (B)" className="size-10" onClick={toggleSidebar}>
+                <PanelLeftOpen className="size-4" aria-hidden />
+              </IconButton>
             </div>
-          )}
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-          <SessionList selected={selected} onNew={openNew} compact />
-        </div>
-        <div className="shrink-0 border-t border-line p-2">
-          <SideNav />
-        </div>
-      </aside>
+          </div>
+        </aside>
+      ) : (
+        <aside className="hidden h-full w-[400px] shrink-0 flex-col border-r border-line bg-elevated lg:flex" aria-label="Sessions">
+          <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-line px-5">
+            <Brand />
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                className="hidden h-9 items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-[13px] text-faint hover:border-line-strong hover:text-muted xl:inline-flex"
+                aria-label="Palette de commandes (Ctrl+K)"
+              >
+                <Command className="size-3.5" aria-hidden />
+                <Kbd>Ctrl K</Kbd>
+              </button>
+              <Button className="h-9 px-3" onClick={openNew} aria-label="Nouvelle session (N)">
+                <Plus className="size-4" aria-hidden />
+                Nouvelle
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-3 px-4 pb-3 pt-4">
+            <HostStrip host={host} />
+            {sessions && sessions.length > 0 && (
+              <div className="px-1">
+                <Summary sessions={sessions} />
+              </div>
+            )}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+            <SessionList selected={selected} onNew={openNew} compact />
+          </div>
+          <div className="shrink-0 border-t border-line p-2">
+            <div className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <SideNav />
+              </div>
+              <IconButton label="Rabattre le panneau (B)" className="size-10" onClick={toggleSidebar}>
+                <PanelLeftClose className="size-4" aria-hidden />
+              </IconButton>
+            </div>
+          </div>
+        </aside>
+      )}
 
       {/* Main area */}
       <main className="min-h-full min-w-0 flex-1 lg:h-full lg:overflow-y-auto">
@@ -217,6 +262,8 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
         onNewSession={openNew}
         onShortcuts={openHelp}
         onLogout={() => void logout()}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={toggleSidebar}
       />
       <ShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
       <ViewportProbe />

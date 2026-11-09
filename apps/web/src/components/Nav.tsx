@@ -74,3 +74,37 @@ export function SideNav() {
     </nav>
   );
 }
+
+/** Icon-only, vertical variant for the collapsed desktop sidebar. */
+export function RailNav({ badge }: { badge: number }) {
+  const [path] = useLocation();
+  return (
+    <nav aria-label="Navigation principale" className="flex flex-col items-center gap-1">
+      {ITEMS.map((it) => {
+        const active = it.match(path);
+        const Icon = it.icon;
+        return (
+          <Link
+            key={it.href}
+            href={it.href}
+            aria-current={active ? 'page' : undefined}
+            title={it.label}
+            aria-label={it.label}
+            className={cx(
+              'relative flex size-10 items-center justify-center rounded-md transition-colors',
+              active ? 'bg-surface-2 text-fg' : 'text-faint hover:bg-surface-2/60 hover:text-muted',
+            )}
+          >
+            <Icon className={cx('size-[18px]', active && 'text-accent')} aria-hidden />
+            {it.href === '/' && badge > 0 && (
+              <span className="tabular absolute -right-0.5 -top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-waiting px-1 text-[9px] font-bold text-[#1a1203] ring-2 ring-elevated">
+                {badge}
+                <span className="sr-only"> session(s) t’attendent</span>
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}

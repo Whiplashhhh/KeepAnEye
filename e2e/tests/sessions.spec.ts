@@ -267,3 +267,23 @@ test('grid: two terminals side by side on desktop', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page).toHaveURL(/\/s\/grid-a$/);
 });
+
+test('desktop sidebar folds into a rail and remembers it', async ({ page }) => {
+  await page.goto('/');
+  const sidebar = page.getByRole('complementary', { name: 'Sessions' });
+  await page.getByRole('button', { name: 'Rabattre le panneau (B)' }).click();
+  await expect(page.getByRole('button', { name: 'Déplier le panneau (B)' })).toBeVisible();
+  expect((await sidebar.boundingBox())!.width).toBeLessThan(80);
+
+  // Still usable from the rail, and the choice survives a reload.
+  await page.getByRole('link', { name: 'Réglages' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Déplier le panneau (B)' })).toBeVisible();
+
+  // Keyboard shortcut toggles it back.
+  await page.locator('body').click();
+  await page.keyboard.press('b');
+  await expect(page.getByRole('button', { name: 'Rabattre le panneau (B)' })).toBeVisible();
+  expect((await sidebar.boundingBox())!.width).toBe(400);
+});

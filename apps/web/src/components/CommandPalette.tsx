@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import type { LucideIcon } from 'lucide-react';
-import { Activity, Bot, Keyboard, LayoutGrid, LogOut, Moon, Plus, Search, Settings, SquareTerminal, Sun } from 'lucide-react';
+import { Activity, Bot, Keyboard, LayoutGrid, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, SquareTerminal, Sun } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { lastGridHref } from '../pages/GridView';
@@ -29,12 +29,16 @@ export function CommandPalette({
   onNewSession,
   onShortcuts,
   onLogout,
+  sidebarCollapsed,
+  onToggleSidebar,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onNewSession: () => void;
   onShortcuts: () => void;
   onLogout: () => void;
+  sidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
 }) {
   const { sessions } = useLive();
   const { resolved, toggle } = useTheme();
@@ -77,6 +81,14 @@ export function CommandPalette({
                 navigate(lastGridHref(location.startsWith('/s/') ? decodeURIComponent(location.slice(3)) : undefined)),
               ),
             },
+            {
+              id: 'sidebar',
+              label: sidebarCollapsed ? 'Déplier le panneau latéral' : 'Rabattre le panneau latéral',
+              icon: sidebarCollapsed ? PanelLeftOpen : PanelLeftClose,
+              group: 'Actions',
+              run: close(onToggleSidebar),
+              hint: 'B',
+            },
           ]
         : []),
       { id: 'activity', label: 'Voir l’activité', icon: Activity, group: 'Actions', run: close(() => navigate('/activity')) },
@@ -92,7 +104,7 @@ export function CommandPalette({
       { id: 'logout', label: 'Se déconnecter', icon: LogOut, group: 'Actions', run: close(onLogout) },
     );
     return list;
-  }, [sessions, location, resolved, toggle, navigate, onNewSession, onShortcuts, onLogout, onOpenChange]);
+  }, [sessions, location, resolved, toggle, navigate, onNewSession, onShortcuts, onLogout, onOpenChange, sidebarCollapsed, onToggleSidebar]);
 
   const filtered = useMemo(() => {
     const q = normalize(query.trim());
