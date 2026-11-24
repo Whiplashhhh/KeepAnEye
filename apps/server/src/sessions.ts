@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import type { ClaudeInfo, CreateSessionInput, SessionInfo, SessionKind } from '@kae/shared';
+import type { ClaudeInfo, CreateSessionInput, SessionInfo, SessionKind, Timeline } from '@kae/shared';
 import { parseRepoRef, SESSION_NAME_RE, sortSessions } from '@kae/shared';
 import type { ClaudeTracker } from './claude/tracker.js';
-import { resolveTranscriptPath } from './claude/transcript.js';
+import { findLatestTranscript, readTimeline, resolveTranscriptPath } from './claude/transcript.js';
 import { absolutePath, assertDirectory } from './fs.js';
 import { HttpError } from './http/errors.js';
 import type { RepoCloner } from './projects.js';
@@ -52,11 +52,7 @@ export class SessionService {
     const isClaudeCommand = s.windows.some((w) => w.command === 'claude');
     const kind: SessionKind =
       s.kind === 'claude' || s.kind === 'terminal' ? s.kind : state || isClaudeCommand ? 'claude' : 'terminal';
-    let project = s.project;
-    if (!project && state?.cwd) {
-      const m = /^\/workspace\/([^/]+)/.exec(state.cwd);
-      if (m) project = m[1] ?? null;
-    }
+    const project = projectOf(s, state);
 
     let claude: ClaudeInfo | null = null;
     if (kind === 'claude') {
@@ -68,7 +64,7 @@ export class SessionService {
           ? `Le processus s'est arrêté${s.deadStatus! > 0 ? ` (code ${s.deadStatus})` : ''}. Ouvre le terminal pour voir pourquoi.`
           : (state?.lastMessage ?? null),
         updatedAt: state?.updatedAt ?? null,
-        hasTranscript: !!resolveTranscriptPath(state?.transcriptPath ?? null, this.opts.claudeHomeDir),
+        hasTranscript: !!resolveTranscriptPath(this.transcriptOf(state?.transcriptPath ?? null, project), this.opts.claudeHomeDir),
       };
     }
 
@@ -201,6 +197,26 @@ export class SessionService {
   async exists(name: string): Promise<boolean> {
     return SESSION_NAME_RE.test(name) && this.tmux.hasSession(name);
   }
+
+  async timeline(name: string): Promise<Timeline> {
+    const s = (await this.tmux.listSessions()).find((t) => t.name === name);
+    const state = this.tracker.get(name);
+    const project = s ? projectOf(s, state) : null;
+    return readTimeline(this.transcriptOf(state?.transcriptPath ?? null, project), this.opts.claudeHomeDir);
+  }
+
+  /** The transcript the hooks reported, else (hooks not installed) the project's latest one. */
+  private transcriptOf(reported: string | null, project: string | null): string | null {
+    if (resolveTranscriptPath(reported, this.opts.claudeHomeDir)) return reported;
+    return findLatestTranscript(project, this.opts.claudeHomeDir) ?? reported;
+  }
+}
+
+/** The session's project: set at creation, else guessed from the cwd Claude reported. */
+function projectOf(s: TmuxSession, state: { cwd: string | null } | null | undefined): string | null {
+  if (s.project) return s.project;
+  const m = state?.cwd ? /^\/workspace\/([^/]+)/.exec(state.cwd) : null;
+  return m?.[1] ?? null;
 }
 
 // Box-drawing and TUI chrome characters (Claude Code draws its prompt inside a box).

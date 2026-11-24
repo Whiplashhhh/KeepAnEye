@@ -1,7 +1,7 @@
-import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseTranscript, readTimeline, resolveTranscriptPath } from '../src/claude/transcript.js';
+import { findLatestTranscript, parseTranscript, readTimeline, resolveTranscriptPath } from '../src/claude/transcript.js';
 import { tempDir } from './helpers.js';
 
 function claudeHome() {
@@ -40,6 +40,30 @@ describe('transcript path resolution', () => {
     ]) {
       expect(resolveTranscriptPath(bad, home), String(bad)).toBeNull();
     }
+  });
+});
+
+describe('transcript fallback without hooks', () => {
+  it('picks the latest transcript of the project', () => {
+    const { home, proj } = claudeHome();
+    writeFileSync(path.join(proj, 'old.jsonl'), '');
+    writeFileSync(path.join(proj, 'new.jsonl'), '');
+    writeFileSync(path.join(proj, 'newer.txt'), '');
+    mkdirSync(path.join(proj, 'subdir.jsonl'));
+    utimesSync(path.join(proj, 'old.jsonl'), 1000, 1000);
+    utimesSync(path.join(proj, 'new.jsonl'), 2000, 2000);
+    const found = findLatestTranscript('web', home);
+    expect(found).toBe('/home/claude/.claude/projects/-workspace-web/new.jsonl');
+    expect(resolveTranscriptPath(found, home)).toBe(path.join(proj, 'new.jsonl'));
+  });
+
+  it('encodes the project like Claude Code and rejects odd names', () => {
+    const { home } = claudeHome();
+    const dir = path.join(home, '.claude', 'projects', '-workspace-my-app-v2');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, 's.jsonl'), '');
+    expect(findLatestTranscript('my_app.v2', home)).toBe('/home/claude/.claude/projects/-workspace-my-app-v2/s.jsonl');
+    for (const bad of [null, '', '..', 'a/b', 'missing']) expect(findLatestTranscript(bad, home), String(bad)).toBeNull();
   });
 });
 

@@ -29,7 +29,6 @@ import { LoginRateLimiter } from './auth/rateLimit.js';
 import { AuthService } from './auth/service.js';
 import { SESSION_COOKIE, SESSION_MAX_MS, SessionStore } from './auth/sessions.js';
 import { ClaudeTracker } from './claude/tracker.js';
-import { readTimeline } from './claude/transcript.js';
 import { markHooked, PaneMonitor } from './claude/pane.js';
 import { EventsWatcher } from './claude/watcher.js';
 import type { Config } from './config.js';
@@ -301,8 +300,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
 
   fastify.get('/api/sessions/:name/timeline', async (req) => {
     const { name } = nameParam.parse(req.params);
-    const state = tracker.get(name);
-    return readTimeline(state?.transcriptPath ?? null, config.claudeHomeDir);
+    return sessionService.timeline(name);
   });
 
   fastify.get('/api/templates', async () => {
