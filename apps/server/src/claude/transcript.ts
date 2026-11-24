@@ -1,4 +1,4 @@
-import { closeSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
+import { closeSync, openSync, readdirSync, readSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import type { Timeline, TimelineItem } from '@kae/shared';
 import { summarizeToolInput } from './events.js';
@@ -26,6 +26,33 @@ export function resolveTranscriptPath(reported: string | null, claudeHomeDir: st
   } catch {
     return null;
   }
+}
+
+/**
+ * Fallback when no hook reported the transcript path (hooks not installed in claude-box): Claude
+ * Code keeps a project's transcripts in ~/.claude/projects/<cwd with non-alphanumerics as "-">/,
+ * so take the most recently written one for /workspace/<project>. Returns the container path, to be
+ * checked by resolveTranscriptPath like a reported one.
+ */
+export function findLatestTranscript(project: string | null, claudeHomeDir: string): string | null {
+  if (!project || project.includes('/') || project === '.' || project === '..') return null;
+  const dirName = `/workspace/${project}`.replace(/[^a-zA-Z0-9]/g, '-');
+  const dir = path.join(claudeHomeDir, '.claude', 'projects', dirName);
+  let best: { name: string; mtime: number } | null = null;
+  try {
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith('.jsonl')) continue;
+      try {
+        const st = statSync(path.join(dir, name));
+        if (st.isFile() && (!best || st.mtimeMs > best.mtime)) best = { name, mtime: st.mtimeMs };
+      } catch {
+        // vanished or unreadable: skip
+      }
+    }
+  } catch {
+    return null;
+  }
+  return best ? `${CONTAINER_HOME}.claude/projects/${dirName}/${best.name}` : null;
 }
 
 function clip(s: string, max = MAX_TEXT): string {
